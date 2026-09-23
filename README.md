@@ -91,7 +91,7 @@ project/
 ## 👥 Thành viên nhóm
 - Thành viên 1: Doãn Đức Nghĩa
 - Thành viên 2: Ngô Bá Đạt
-- Thành viên 3: Nguyễn Minh Ngọc
+- Thành viên 3: Lê Minh Ngọc
 
 ---
 
