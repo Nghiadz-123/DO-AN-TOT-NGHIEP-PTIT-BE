@@ -15,10 +15,6 @@ Dự án xây dựng một hệ thống web kết nối tuyển dụng, tích h�
 - Python (Django)
 - REST API
 
-**🔹 Frontend**
-- ReactJS
-- HTML, CSS, JavaScript
-
 **🔹 Cơ sở dữ liệu**
 - PostgreSQL (Lưu trữ dữ liệu hệ thống quan hệ)
 - ChromaDB (Cơ sở dữ liệu Vector lưu trữ embeddings)
