@@ -78,13 +78,25 @@ python manage.py runserver
 
 ## 📂 Cấu trúc thư mục
 ```text
-project/
-├── frontend/
+DO-AN-TOT-NGHIEP-PTIT-BE/
 ├── backend/
+│   ├── config/          # Django project: settings (base/dev/prod/test), urls, celery
+│   ├── common/          # Thành phần dùng chung: base model, permission, pagination, exception
+│   └── apps/
+│       ├── accounts/    # Authentication (JWT, custom User, role)
+│       ├── candidates/  # Hồ sơ ứng viên
+│       ├── employers/   # Công ty & nhà tuyển dụng
+│       ├── cvs/         # Upload, parse CV
+│       ├── jobs/        # Tin tuyển dụng
+│       ├── applications/# Ứng tuyển, pipeline ATS
+│       └── ai/          # LLM, prompts, vector store, 4 chức năng AI
 ├── database/
 ├── docs/
+├── docker-compose.yml
 └── README.md
 ```
+
+Chi tiết trách nhiệm từng thư mục/file: [docs/backend-structure.md](docs/backend-structure.md)
 
 ---
 
