@@ -2,7 +2,9 @@
 
 Stack: Django + Django REST Framework + PostgreSQL, Celery + Redis (xử lý bất đồng bộ các tác vụ AI), ChromaDB (vector store), LLM API (OpenAI / Gemini).
 
-> Hiện tại mới là **skeleton**: tất cả file đều rỗng. Không chạy `django-admin startproject` / `startapp` đè lên, vì sẽ báo lỗi trùng file. Hãy điền nội dung trực tiếp vào các file đã có.
+> **Trạng thái**: giai đoạn 1 (chức năng Nhà tuyển dụng) đã triển khai trong `config`, `common`, `accounts`, `catalog`, `employers`, `jobs`, `applications` và model tối thiểu của `candidates`, `cvs` — xem [employer-api.md](employer-api.md). Các file còn rỗng (`ai/`, `cvs/parsers`, API phía ứng viên...) thuộc giai đoạn sau. Không chạy `django-admin startproject` / `startapp` đè lên; điền nội dung trực tiếp vào các file đã có.
+>
+> Ngoài các file chuẩn bên dưới, một số app có thêm: `workflow.py` (bảng chuyển trạng thái), `signals.py` (domain event cho module khác lắng nghe), `permissions.py`; `accounts/registry.py` (app theo vai trò đăng ký phần `profile` của `/auth/me/`).
 
 ## Tổng quan
 
@@ -18,6 +20,7 @@ DO-AN-TOT-NGHIEP-PTIT-BE/
 │   ├── common/                 # Thành phần dùng chung
 │   └── apps/                   # Các module nghiệp vụ
 │       ├── accounts/           # Authentication
+│       ├── catalog/            # Danh mục dùng chung (kỹ năng, ngành nghề, tỉnh/thành)
 │       ├── candidates/         # Ứng viên
 │       ├── employers/          # Nhà tuyển dụng / công ty
 │       ├── cvs/                # CV
