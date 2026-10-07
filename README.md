@@ -33,46 +33,43 @@ Dự án xây dựng một hệ thống web kết nối tuyển dụng, tích h�
 
 ## ⚙️ Cài đặt môi trường Backend
 
-**1. Clone project**
+Yêu cầu: Python 3.12, PostgreSQL ≥ 13 (hoặc SQLite để chạy nhanh).
+
+**1. Clone project và tạo môi trường ảo**
 ```bash
 git clone <repo-url>
-cd project
-```
-
-**2. Tạo môi trường ảo**
-```bash
-python -m venv venv
-```
-Kích hoạt:
-```bash
+cd DO-AN-TOT-NGHIEP-PTIT-BE/backend
+py -3.12 -m venv venv
 venv\Scripts\activate   # Windows
-```
-
-**3. Cài thư viện**
-```bash
 pip install -r requirements.txt
 ```
 
-**4. Cấu hình database PostgreSQL**
+**2. Cấu hình database PostgreSQL**
 ```sql
 CREATE DATABASE ats_db;
 ```
 
-**5. Cấu hình biến môi trường (.env)**
+**3. Cấu hình biến môi trường**: sao chép `backend/.env.example` thành `backend/.env` rồi điền mật khẩu DB
 ```env
+DB_ENGINE=postgresql        # hoặc sqlite (không cần cài PostgreSQL)
 DB_NAME=ats_db
 DB_USER=postgres
 DB_PASSWORD=your_password
 DB_HOST=localhost
 DB_PORT=5432
-OPENAI_API_KEY=your_api_key
 ```
 
-**6. Chạy project**
+**4. Chạy project**
 ```bash
 python manage.py migrate
+python manage.py seed_demo         # dữ liệu demo: recruiter@demo.com / 123456
+python manage.py createsuperuser   # tài khoản trang quản trị /admin/
 python manage.py runserver
 ```
+- API: `http://localhost:8000/api/v1/` — tài liệu Swagger: `http://localhost:8000/api/docs/`
+- Chạy test: `pytest`
+
+Giai đoạn 1 (đã triển khai): API dành cho **Nhà tuyển dụng** — xem [docs/employer-api.md](docs/employer-api.md) (giả định, kiến trúc, API, quy tắc nghiệp vụ, điểm mở rộng cho AI).
 
 ---
 
@@ -84,6 +81,7 @@ DO-AN-TOT-NGHIEP-PTIT-BE/
 │   ├── common/          # Thành phần dùng chung: base model, permission, pagination, exception
 │   └── apps/
 │       ├── accounts/    # Authentication (JWT, custom User, role)
+│       ├── catalog/     # Danh mục dùng chung: tỉnh/thành, ngành nghề, kỹ năng
 │       ├── candidates/  # Hồ sơ ứng viên
 │       ├── employers/   # Công ty & nhà tuyển dụng
 │       ├── cvs/         # Upload, parse CV
