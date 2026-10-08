@@ -26,6 +26,19 @@ def employer_application_detail_queryset(company):
     )
 
 
+def candidate_applications(candidate):
+    """Hồ sơ một ứng viên đã nộp, gồm cả hồ sơ vào tin đã đóng (vẫn hiển thị để ứng viên theo dõi)."""
+    return (
+        Application.objects.filter(candidate=candidate)
+        .select_related('job__company', 'job__location', 'cv')
+        .annotate(applied_at=F('created_at'))
+    )
+
+
+def candidate_application_detail_queryset(candidate):
+    return candidate_applications(candidate).prefetch_related('status_history')
+
+
 def employer_dashboard(company) -> dict:
     job_stats = Job.objects.filter(company=company).aggregate(
         total=Count('id'),

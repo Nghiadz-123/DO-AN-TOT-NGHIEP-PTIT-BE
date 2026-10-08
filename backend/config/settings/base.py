@@ -127,7 +127,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'EXCEPTION_HANDLER': 'common.exceptions.custom_exception_handler',
-    'DEFAULT_THROTTLE_RATES': {'auth': '20/min'},
+    'DEFAULT_THROTTLE_RATES': {'auth': '20/min', 'cv_upload': '30/hour'},
     'COERCE_DECIMAL_TO_STRING': False,
 }
 
@@ -148,7 +148,8 @@ CORS_EXPOSE_HEADERS = ['Content-Disposition']
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Smart ATS API',
-    'DESCRIPTION': 'API nền tảng tuyển dụng (ATS). Giai đoạn 1: chức năng dành cho Nhà tuyển dụng.',
+    'DESCRIPTION': 'API nền tảng tuyển dụng (ATS). Giai đoạn 1: chức năng dành cho Nhà tuyển dụng. '
+    'Giai đoạn 2: chức năng dành cho Ứng viên (hồ sơ, tải lên CV, ứng tuyển).',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
@@ -157,9 +158,12 @@ SPECTACULAR_SETTINGS = {
         'JobStatusEnum': 'apps.jobs.models.JobStatus',
         'JobInitialStatusEnum': ['draft', 'published'],
         'JobLevelEnum': 'apps.catalog.choices.JobLevel',
+        'JobTypeEnum': 'apps.catalog.choices.JobType',
+        'WorkModeEnum': 'apps.catalog.choices.WorkMode',
         'ApplicationStatusEnum': 'apps.applications.models.ApplicationStatus',
         'ApplicationTargetStatusEnum': ['screening', 'interview', 'offer', 'hired', 'rejected'],
         'RecruiterStatusEnum': 'apps.employers.models.RecruiterStatus',
+        'CVParseStatusEnum': 'apps.cvs.models.CVParseStatus',
     },
 }
 
@@ -174,3 +178,6 @@ LOGGING = {
 # True: công ty phải được admin xác minh mới được đăng tin (đúng thiết kế DB); False tiện cho dev/demo
 EMPLOYER_REQUIRE_VERIFIED_COMPANY = env.bool('EMPLOYER_REQUIRE_VERIFIED_COMPANY', default=False)
 COMPANY_LOGO_MAX_SIZE = 2 * 1024 * 1024
+# CV ứng viên: PDF/DOCX tối đa 5 MB (UC-03); số CV tối đa một ứng viên được lưu (không tính CV đã xóa)
+CV_MAX_SIZE = 5 * 1024 * 1024
+CANDIDATE_MAX_CVS = env.int('CANDIDATE_MAX_CVS', default=10)

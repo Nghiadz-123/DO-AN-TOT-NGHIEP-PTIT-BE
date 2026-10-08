@@ -1,26 +1,32 @@
 from django.http import FileResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
-from rest_framework import mixins, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.candidates.permissions import CandidateAccessMixin
 from apps.employers.permissions import EmployerAccessMixin
 
 from . import selectors, services
-from .filters import EmployerApplicationFilter
+from .filters import CandidateApplicationFilter, EmployerApplicationFilter
 from .models import Application
 from .serializers import (
     ApplicationRatingSerializer,
     ApplicationStatusChangeSerializer,
+    CandidateApplicationDetailSerializer,
+    CandidateApplicationListSerializer,
+    CandidateApplySerializer,
+    CandidateWithdrawSerializer,
     EmployerApplicationDetailSerializer,
     EmployerApplicationListSerializer,
     EmployerDashboardSerializer,
 )
 
 TAG = ['Employer - Ứng viên']
+CANDIDATE_TAG = ['Candidate - Ứng tuyển']
 
 
 @extend_schema_view(
@@ -97,3 +103,62 @@ class EmployerDashboardView(EmployerAccessMixin, APIView):
     def get(self, request):
         data = selectors.employer_dashboard(self.company)
         return Response(EmployerDashboardSerializer(data, context={'request': request}).data)
+
+
+@extend_schema_view(
+    list=extend_schema(tags=CANDIDATE_TAG, summary='Hồ sơ tôi đã nộp (lọc theo trạng thái, từ khóa)'),
+    retrieve=extend_schema(tags=CANDIDATE_TAG, summary='Chi tiết hồ sơ đã nộp: tin, CV, thư giới thiệu, lịch sử'),
+    create=extend_schema(
+        tags=CANDIDATE_TAG,
+        summary='Ứng tuyển vào một tin bằng CV đã tải lên',
+        request=CandidateApplySerializer,
+        responses={201: CandidateApplicationDetailSerializer},
+    ),
+)
+class CandidateApplicationViewSet(
+    CandidateAccessMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Hồ sơ ứng tuyển của ứng viên đang đăng nhập. Hồ sơ của người khác trả về 404."""
+
+    filterset_class = CandidateApplicationFilter
+    ordering_fields = ['applied_at', 'status_changed_at']
+    ordering = ['-applied_at']
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):  # lúc sinh tài liệu OpenAPI không có user
+            return Application.objects.none()
+        if self.action == 'list':
+            return selectors.candidate_applications(self.candidate)
+        return selectors.candidate_application_detail_queryset(self.candidate)
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return CandidateApplicationListSerializer
+        if self.action == 'create':
+            return CandidateApplySerializer
+        return CandidateApplicationDetailSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = CandidateApplySerializer(
+            data=request.data, context={**self.get_serializer_context(), 'candidate': self.candidate}
+        )
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        application = services.submit_application(
+            candidate=self.candidate, job=data['job'], cv=data['cv'], cover_letter=data['cover_letter']
+        )
+        return Response(self._detail(application.pk), status=status.HTTP_201_CREATED)
+
+    @extend_schema(tags=CANDIDATE_TAG, summary='Rút hồ sơ (khi chưa có kết quả)',
+                   request=CandidateWithdrawSerializer, responses=CandidateApplicationDetailSerializer)
+    @action(detail=True, methods=['post'])
+    def withdraw(self, request, pk=None):
+        serializer = CandidateWithdrawSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.withdraw_application(self.get_object(), by=request.user, reason=serializer.validated_data['reason'])
+        return Response(self._detail(pk))
+
+    def _detail(self, pk):
+        fresh = selectors.candidate_application_detail_queryset(self.candidate).get(pk=pk)
+        return CandidateApplicationDetailSerializer(fresh, context=self.get_serializer_context()).data

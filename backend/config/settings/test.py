@@ -15,5 +15,6 @@ _tmp = Path(tempfile.mkdtemp(prefix='ats-test-'))
 MEDIA_ROOT = _tmp / 'media'
 PRIVATE_MEDIA_ROOT = _tmp / 'private_media'
 
-REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {'auth': None}
+REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {'auth': None, 'cv_upload': None}
 EMPLOYER_REQUIRE_VERIFIED_COMPANY = False
+CANDIDATE_MAX_CVS = 10

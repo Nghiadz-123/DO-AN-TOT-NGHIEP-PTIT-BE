@@ -6,10 +6,10 @@
 Nhà tuyển dụng demo (mật khẩu 123456, CHỈ dùng cho dev):
     recruiter@demo.com - TechViet Solutions (đã xác minh)
     hr@cloudnine.demo  - CloudNine Tech (chờ xác minh)
-Ứng viên demo không đăng nhập được: API phía ứng viên thuộc giai đoạn sau. Hồ sơ ứng tuyển được tạo qua
-đúng service `submit_application` / `change_status` mà API thật sử dụng.
+Ứng viên demo (cùng mật khẩu): candidate@demo.com, cuc.le@demo.com, duc.pham@demo.com, ...
+Tài khoản, CV (kèm bóc tách văn bản) và hồ sơ ứng tuyển được tạo qua đúng service mà API thật sử dụng
+(`register_candidate`, `upload_cv`, `submit_application`, `change_status`).
 """
-import hashlib
 import textwrap
 from datetime import timedelta
 from decimal import Decimal
@@ -21,11 +21,12 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from apps.accounts.models import User, UserRole
+from apps.accounts.models import User
 from apps.applications import services as application_services
 from apps.applications.models import Application, ApplicationStatus as S, ApplicationStatusHistory
-from apps.candidates.models import CandidateProfile
+from apps.candidates import services as candidate_services
 from apps.catalog.models import Industry, Location
+from apps.cvs import services as cv_services
 from apps.cvs.models import CV, CVMimeType
 from apps.employers import services as employer_services
 from apps.employers.models import Company, Recruiter, VerificationStatus
@@ -222,7 +223,8 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'Đã tạo {len(recruiters)} nhà tuyển dụng, {len(jobs)} tin, {len(candidates)} ứng viên, {count} hồ sơ.'
         ))
-        self.stdout.write(f'Đăng nhập: recruiter@demo.com / {DEMO_PASSWORD} (hoặc hr@cloudnine.demo)')
+        self.stdout.write(f'Nhà tuyển dụng: recruiter@demo.com / {DEMO_PASSWORD} (hoặc hr@cloudnine.demo)')
+        self.stdout.write(f'Ứng viên: candidate@demo.com / {DEMO_PASSWORD} (hoặc cuc.le@demo.com, ...)')
 
     # ------------------------------------------------------------------ reset
     def _reset(self, emails):
@@ -295,12 +297,13 @@ class Command(BaseCommand):
         candidates = {}
         for (key, email, full_name, phone, headline, years, level, location, summary, skills, experience,
              filename) in CANDIDATES:
-            user = User.objects.create_user(email=email, password=None, role=UserRole.CANDIDATE,
-                                            full_name=full_name, phone=phone)
-            profile = CandidateProfile.objects.create(
-                user=user, headline=headline, years_of_experience=Decimal(years), current_level=level,
-                location=Location.objects.get(slug=location), summary=summary, desired_position=headline,
+            profile = candidate_services.register_candidate(
+                email=email, password=DEMO_PASSWORD, full_name=full_name, phone=phone
             )
+            candidate_services.update_candidate_profile(profile, data={
+                'headline': headline, 'years_of_experience': Decimal(years), 'current_level': level,
+                'location': Location.objects.get(slug=location), 'summary': summary, 'desired_position': headline,
+            })
             pdf = build_pdf([
                 ('name', full_name), ('title', headline), ('text', f'Email: {email}  |  Dien thoai: {phone}'),
                 ('heading', 'GIOI THIEU'), ('text', summary),
@@ -308,10 +311,11 @@ class Command(BaseCommand):
                 ('heading', 'KINH NGHIEM'), *[('text', f'- {line}') for line in experience],
                 ('heading', 'HOC VAN'), ('text', EDUCATION),
             ])
-            cv = CV(candidate=profile, title=f'CV {headline}', original_filename=filename, mime_type=CVMimeType.PDF,
-                    file_size=len(pdf), file_hash=hashlib.sha256(pdf).hexdigest(), language='vi', is_default=True)
-            cv.file.save(filename, ContentFile(pdf), save=False)
-            cv.save()
+            # Bóc tách văn bản chạy sau khi transaction của lệnh commit (như khi upload qua API)
+            cv = cv_services.upload_cv(
+                candidate=profile, file=ContentFile(pdf, name=filename), mime_type=CVMimeType.PDF,
+                title=f'CV {headline}', language='vi',
+            )
             candidates[key] = (profile, cv)
         return candidates
 
