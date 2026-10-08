@@ -1,27 +1,5 @@
-# Python
-__pycache__/
 *.py[cod]
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Virtualenv
-venv/
-.venv/
-
-# Biến môi trường (chỉ commit .env.example)
-.env
-
-# Dữ liệu cục bộ
+__pycache__/
+*.sqlite3
+backend/.env
 backend/db.sqlite3
-backend/media/
-backend/private_media/
-backend/staticfiles/
-
-# Editor / OS
-.vscode/
-.idea/
-.DS_Store
-
-docs/database-design.md
-docs/employer-api.md

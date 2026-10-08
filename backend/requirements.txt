@@ -1,16 +1,5 @@
-# --- Core ---
-Django>=5.2,<5.3                       # LTS, hỗ trợ tới 04/2028
-djangorestframework>=3.16,<3.19
-djangorestframework-simplejwt>=5.5,<6  # JWT access/refresh + blacklist khi logout
-django-filter>=25.1
-django-cors-headers>=4.7
-drf-spectacular>=0.28                  # OpenAPI schema + Swagger UI
-django-environ>=0.12
-psycopg[binary]>=3.2                   # Driver PostgreSQL
-Pillow>=11.0                           # ImageField (logo công ty)
-
-# --- Test ---
-pytest>=8.0
-pytest-django>=4.9
-
-# Giai đoạn AI sẽ bổ sung: celery, redis, chromadb, openai / google-genai, spacy
+django>=4.2,<5.0
+djangorestframework>=3.15
+djangorestframework-simplejwt>=5.3
+django-cors-headers>=4.3
+python-decouple>=3.8
