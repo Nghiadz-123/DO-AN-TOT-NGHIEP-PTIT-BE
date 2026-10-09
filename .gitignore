@@ -1,5 +1,24 @@
-*.py[cod]
+# Python
 __pycache__/
-*.sqlite3
-backend/.env
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+
+venv/
+.venv/
+
+
+.env
+
+
 backend/db.sqlite3
+backend/media/
+backend/private_media/
+backend/staticfiles/
+
+.vscode/
+.idea/
+.DS_Store
+
