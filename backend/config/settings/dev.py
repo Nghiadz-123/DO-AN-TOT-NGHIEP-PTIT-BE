@@ -1,5 +1,9 @@
-from .base import *  # noqa: F401,F403
-from .base import env
+import os
+from .base import *
 
-DEBUG = env.bool('DJANGO_DEBUG', default=True)
-ALLOWED_HOSTS = ['*']
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'db.sqlite3'),
+    }
+}
