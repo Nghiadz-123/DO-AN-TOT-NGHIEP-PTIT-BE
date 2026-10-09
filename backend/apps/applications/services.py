@@ -16,8 +16,9 @@ from .models import Application, ApplicationStatus, ApplicationStatusHistory
 def submit_application(*, candidate, job: Job, cv, cover_letter: str = '') -> Application:
     """Ứng viên nộp hồ sơ vào một tin.
 
-    Giai đoạn 1 chỉ được gọi từ lệnh `seed_demo`; API ứng viên ở giai đoạn sau sẽ gọi lại đúng hàm này
-    nên mọi quy tắc (tin còn nhận hồ sơ, chống nộp trùng, đếm hồ sơ, lịch sử) nằm sẵn ở đây.
+    Được gọi từ API ứng viên (POST /candidate/applications/) và lệnh `seed_demo`; mọi quy tắc
+    (tin còn nhận hồ sơ, CV hợp lệ, chống nộp trùng, đếm hồ sơ, lịch sử) nằm ở đây.
+    CV chưa bóc tách xong vẫn được nộp (UC-08): việc chấm điểm chạy nền khi CV sẵn sàng.
     """
     if not job_workflow.is_accepting_applications(job):
         raise BusinessError('Tin tuyển dụng không còn nhận hồ sơ.', code='job_not_accepting')
@@ -71,6 +72,38 @@ def change_status(
         application=application,
         from_status=from_status,
         to_status=to_status,
+        changed_by=by,
+    )
+    return application
+
+
+@transaction.atomic
+def withdraw_application(application: Application, *, by, reason: str = '') -> Application:
+    """Ứng viên tự rút hồ sơ khi chưa có kết quả. Ghi lịch sử (lý do để NTD xem) và phát cùng event
+    application_status_changed như khi NTD đổi trạng thái."""
+    application = Application.objects.select_for_update().get(pk=application.pk)
+    from_status = application.status
+    if not workflow.can_withdraw(from_status):
+        raise BusinessError(
+            f'Không thể rút hồ sơ đang ở trạng thái "{ApplicationStatus(from_status).label}".',
+            code='invalid_status_transition',
+            status_code=409,
+        )
+
+    application.status = ApplicationStatus.WITHDRAWN
+    application.status_changed_at = timezone.now()
+    application.save(update_fields=['status', 'status_changed_at', 'updated_at'])
+
+    ApplicationStatusHistory.objects.create(
+        application=application, from_status=from_status, to_status=ApplicationStatus.WITHDRAWN, changed_by=by,
+        note=reason.strip(),
+    )
+    send_on_commit(
+        signals.application_status_changed,
+        sender=Application,
+        application=application,
+        from_status=from_status,
+        to_status=ApplicationStatus.WITHDRAWN,
         changed_by=by,
     )
     return application

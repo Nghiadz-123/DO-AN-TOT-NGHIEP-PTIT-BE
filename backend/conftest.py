@@ -1,14 +1,20 @@
-"""Fixture pytest dùng chung: nhà tuyển dụng, API client đã đăng nhập, factory tạo tin / ứng viên / hồ sơ."""
+"""Fixture pytest dùng chung: nhà tuyển dụng, ứng viên, API client đã đăng nhập, factory tạo tin / CV / hồ sơ."""
+import io
 import itertools
+import zipfile
 from datetime import timedelta
+from xml.sax.saxutils import escape
 
 import pytest
 from django.core.files.base import ContentFile
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User, UserRole
 from apps.applications import services as application_services
+from apps.applications.management.commands.seed_demo import build_pdf
+from apps.candidates import services as candidate_services
 from apps.candidates.models import CandidateProfile
 from apps.cvs.models import CV, CVMimeType
 from apps.employers import services as employer_services
@@ -143,5 +149,64 @@ def make_application(make_candidate, recruiter):
         for status in statuses:
             application = application_services.change_status(application, to_status=status, by=recruiter.user)
         return application
+
+    return factory
+
+
+# ------------------------------------------------------------------------------------------ ứng viên & CV
+@pytest.fixture
+def candidate(db):
+    """Ứng viên đăng ký qua service như API thật (chưa có CV)."""
+    return candidate_services.register_candidate(
+        email='candidate@test.com', password=PASSWORD, full_name='Nguyễn Văn A', phone='0912345678'
+    )
+
+
+@pytest.fixture
+def candidate_client(candidate):
+    return client_for(candidate.user)
+
+
+def pdf_bytes(*lines: str) -> bytes:
+    """PDF 1 trang có lớp chữ (font chuẩn nên tiếng Việt bị bỏ dấu); không truyền dòng nào = PDF 'scan'."""
+    return build_pdf([('text', line) for line in lines])
+
+
+def docx_bytes(*paragraphs: str, header: str = '') -> bytes:
+    """DOCX tối giản đúng cấu trúc Office Open XML (giữ nguyên tiếng Việt có dấu)."""
+    ns = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+
+    def body(items):
+        return ''.join(f'<w:p><w:r><w:t xml:space="preserve">{escape(p)}</w:t></w:r></w:p>' for p in items)
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            '[Content_Types].xml',
+            '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/'
+            'content-types"><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/'
+            'document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.'
+            'main+xml"/></Types>',
+        )
+        archive.writestr('word/document.xml', f'<?xml version="1.0" encoding="UTF-8"?><w:document {ns}><w:body>'
+                                              f'{body(paragraphs)}</w:body></w:document>')
+        if header:
+            archive.writestr('word/header1.xml', f'<?xml version="1.0" encoding="UTF-8"?><w:hdr {ns}>'
+                                                 f'{body([header])}</w:hdr>')
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def cv_upload():
+    """Factory file CV để gửi multipart. Mỗi file có nội dung khác nhau (không bị coi là trùng)."""
+
+    def factory(kind='pdf', name=None, text='Kinh nghiem 2 nam Python, Django, PostgreSQL. Email: a@test.com'):
+        unique = f'{text} (ma {next(_seq)})'
+        if kind == 'pdf':
+            return SimpleUploadedFile(name or 'cv.pdf', pdf_bytes(unique), content_type='application/pdf')
+        return SimpleUploadedFile(
+            name or 'cv.docx', docx_bytes(unique),
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        )
 
     return factory

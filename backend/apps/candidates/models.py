@@ -1,7 +1,8 @@
 """Hồ sơ ứng viên.
 
-Giai đoạn 1 (nhà tuyển dụng) chỉ cần thông tin để NTD xem ứng viên đã nộp đơn. Các bảng học vấn,
-kinh nghiệm, kỹ năng tự khai, job đã lưu (xem database/schema.sql) bổ sung ở giai đoạn ứng viên.
+Giai đoạn 1 (nhà tuyển dụng): thông tin để NTD xem ứng viên đã nộp đơn.
+Giai đoạn 2 (ứng viên - CV): ứng viên tự đăng ký, cập nhật hồ sơ này qua /candidate/profile/.
+Các bảng học vấn, kinh nghiệm, kỹ năng tự khai, job đã lưu (xem database/schema.sql) bổ sung sau.
 """
 from django.conf import settings
 from django.db import models

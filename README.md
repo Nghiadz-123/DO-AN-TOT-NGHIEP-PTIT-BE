@@ -62,7 +62,7 @@ DB_PORT=5432
 **4. Chạy project**
 ```bash
 python manage.py migrate
-python manage.py seed_demo         # dữ liệu demo: recruiter@demo.com / 123456
+python manage.py seed_demo         # dữ liệu demo: recruiter@demo.com, candidate@demo.com / 123456
 python manage.py createsuperuser   # tài khoản trang quản trị /admin/
 python manage.py runserver
 ```
@@ -70,6 +70,8 @@ python manage.py runserver
 - Chạy test: `pytest`
 
 Giai đoạn 1 (đã triển khai): API dành cho **Nhà tuyển dụng** — xem [docs/employer-api.md](docs/employer-api.md) (giả định, kiến trúc, API, quy tắc nghiệp vụ, điểm mở rộng cho AI).
+
+Giai đoạn 2 (đã triển khai): API dành cho **Ứng viên** — đăng ký, hồ sơ, **tải lên CV** (PDF/DOCX, bóc tách văn bản), ứng tuyển và theo dõi hồ sơ — xem [docs/candidate-api.md](docs/candidate-api.md).
 
 ---
 

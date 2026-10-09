@@ -2,7 +2,7 @@
 
 Stack: Django + Django REST Framework + PostgreSQL, Celery + Redis (xử lý bất đồng bộ các tác vụ AI), ChromaDB (vector store), LLM API (OpenAI / Gemini).
 
-> **Trạng thái**: giai đoạn 1 (chức năng Nhà tuyển dụng) đã triển khai trong `config`, `common`, `accounts`, `catalog`, `employers`, `jobs`, `applications` và model tối thiểu của `candidates`, `cvs` — xem [employer-api.md](employer-api.md). Các file còn rỗng (`ai/`, `cvs/parsers`, API phía ứng viên...) thuộc giai đoạn sau. Không chạy `django-admin startproject` / `startapp` đè lên; điền nội dung trực tiếp vào các file đã có.
+> **Trạng thái**: giai đoạn 1 (chức năng Nhà tuyển dụng) đã triển khai trong `config`, `common`, `accounts`, `catalog`, `employers`, `jobs`, `applications` — xem [employer-api.md](employer-api.md). Giai đoạn 2 (chức năng Ứng viên: đăng ký, hồ sơ, tải lên CV, ứng tuyển) đã triển khai trong `candidates`, `cvs` và phần `candidate/applications` của `applications` — xem [candidate-api.md](candidate-api.md). Các file còn rỗng (`ai/`) thuộc giai đoạn sau. Không chạy `django-admin startproject` / `startapp` đè lên; điền nội dung trực tiếp vào các file đã có.
 >
 > Ngoài các file chuẩn bên dưới, một số app có thêm: `workflow.py` (bảng chuyển trạng thái), `signals.py` (domain event cho module khác lắng nghe), `permissions.py`; `accounts/registry.py` (app theo vai trò đăng ký phần `profile` của `/auth/me/`).
 
@@ -107,9 +107,11 @@ Công ty (Company) và hồ sơ nhà tuyển dụng (Recruiter thuộc Company),
 
 Upload và quản lý file CV, trích xuất text, lưu dữ liệu đã bóc tách. **Không** gọi LLM trực tiếp.
 
-- `validators.py`: kiểm tra định dạng (PDF/DOCX) và dung lượng file.
-- `parsers/pdf_parser.py`, `parsers/docx_parser.py`: chuyển file thành raw text (không dùng AI).
-- `tasks.py`: sau khi upload, chạy Celery task để parse rồi chuyển cho `ai` phân tích.
+- `validators.py`: kiểm tra định dạng (PDF/DOCX, theo nội dung file) và dung lượng file.
+- `parsers/pdf_parser.py`, `parsers/docx_parser.py`: chuyển file thành raw text (không dùng AI); `parsers/__init__.py` chuẩn hóa văn bản, trích email/SĐT/link.
+- `tasks.py`: sau khi upload, chạy task bóc tách (hiện chạy sau commit trong cùng tiến trình; giai đoạn AI đổi sang Celery) rồi phát `signals.cv_parsed` cho `ai` phân tích.
+- `signals.py`: domain event `cv_uploaded`, `cv_parsed`, `cv_deleted`.
+- `management/commands/parse_cvs.py`: bóc tách lại CV đang chờ / bị lỗi.
 
 ### `jobs/` — Tin tuyển dụng
 

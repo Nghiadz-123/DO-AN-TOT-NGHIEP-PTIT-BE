@@ -80,6 +80,10 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'EXCEPTION_HANDLER': 'common.exceptions.custom_exception_handler',
+    'DEFAULT_THROTTLE_RATES': {'auth': '20/min', 'cv_upload': '30/hour'},
+    'COERCE_DECIMAL_TO_STRING': False,
 }
 
 from datetime import timedelta
@@ -90,9 +94,44 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'http://localhost:3000',
-]
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = env.list(
+    'CORS_ALLOWED_ORIGINS', default=['http://localhost:3000', 'http://127.0.0.1:3000']
+)
+# Cho frontend đọc được tên file khi tải CV
+CORS_EXPOSE_HEADERS = ['Content-Disposition']
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Smart ATS API',
+    'DESCRIPTION': 'API nền tảng tuyển dụng (ATS). Giai đoạn 1: chức năng dành cho Nhà tuyển dụng. '
+    'Giai đoạn 2: chức năng dành cho Ứng viên (hồ sơ, tải lên CV, ứng tuyển).',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': r'/api/v1',
+    'ENUM_NAME_OVERRIDES': {
+        'JobStatusEnum': 'apps.jobs.models.JobStatus',
+        'JobInitialStatusEnum': ['draft', 'published'],
+        'JobLevelEnum': 'apps.catalog.choices.JobLevel',
+        'JobTypeEnum': 'apps.catalog.choices.JobType',
+        'WorkModeEnum': 'apps.catalog.choices.WorkMode',
+        'ApplicationStatusEnum': 'apps.applications.models.ApplicationStatus',
+        'ApplicationTargetStatusEnum': ['screening', 'interview', 'offer', 'hired', 'rejected'],
+        'RecruiterStatusEnum': 'apps.employers.models.RecruiterStatus',
+        'CVParseStatusEnum': 'apps.cvs.models.CVParseStatus',
+    },
+}
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {'console': {'class': 'logging.StreamHandler'}},
+    'root': {'handlers': ['console'], 'level': 'INFO'},
+}
+
+# --- Nghiệp vụ ---
+# True: công ty phải được admin xác minh mới được đăng tin (đúng thiết kế DB); False tiện cho dev/demo
+EMPLOYER_REQUIRE_VERIFIED_COMPANY = env.bool('EMPLOYER_REQUIRE_VERIFIED_COMPANY', default=False)
+COMPANY_LOGO_MAX_SIZE = 2 * 1024 * 1024
+# CV ứng viên: PDF/DOCX tối đa 5 MB (UC-03); số CV tối đa một ứng viên được lưu (không tính CV đã xóa)
+CV_MAX_SIZE = 5 * 1024 * 1024
+CANDIDATE_MAX_CVS = env.int('CANDIDATE_MAX_CVS', default=10)

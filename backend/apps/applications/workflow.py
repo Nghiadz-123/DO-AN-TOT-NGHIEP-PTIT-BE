@@ -5,7 +5,10 @@
        └────────────┴─────────────┴───────────┴──▶ rejected ──(mở lại)──▶ screening
     applied ──────────────────▶ interview   (mời phỏng vấn ngay, bỏ qua sàng lọc)
 
-`withdrawn` do ứng viên tự rút (API ứng viên - giai đoạn sau); `hired`, `withdrawn` là trạng thái cuối.
+    applied | screening | interview | offer ──(ứng viên rút)──▶ withdrawn
+
+`withdrawn` do ứng viên tự rút (POST /candidate/applications/{id}/withdraw/), không nằm trong TRANSITIONS
+vì nhà tuyển dụng không được chọn; `hired`, `withdrawn` là trạng thái cuối, `rejected` thì ứng viên không rút được.
 """
 from .models import ApplicationStatus as S
 
@@ -25,6 +28,9 @@ EMPLOYER_TARGET_STATUSES = (S.SCREENING, S.INTERVIEW, S.OFFER, S.HIRED, S.REJECT
 # Hồ sơ đang trong quy trình tuyển (chưa có kết quả)
 IN_PROGRESS_STATUSES = (S.SCREENING, S.INTERVIEW, S.OFFER)
 
+# Ứng viên được tự rút hồ sơ khi chưa có kết quả (UC-09)
+CANDIDATE_WITHDRAWABLE_STATUSES = (S.APPLIED, *IN_PROGRESS_STATUSES)
+
 
 def allowed_transitions(status: str) -> list[str]:
     return list(TRANSITIONS.get(status, ()))
@@ -32,3 +38,7 @@ def allowed_transitions(status: str) -> list[str]:
 
 def can_transition(from_status: str, to_status: str) -> bool:
     return to_status in TRANSITIONS.get(from_status, ())
+
+
+def can_withdraw(status: str) -> bool:
+    return status in CANDIDATE_WITHDRAWABLE_STATUSES
