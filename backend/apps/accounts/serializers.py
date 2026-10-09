@@ -1,59 +1,72 @@
+from django.contrib.auth.password_validation import validate_password
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from django.contrib.auth import authenticate
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from common.validators import phone_validator
+
+from . import registry
 from .models import User
 
 
 class UserSerializer(serializers.ModelSerializer):
-    """Serializer tra ve thong tin user, khong co password."""
+    """Thông tin tài khoản + `profile` theo vai trò (employer: recruiter & công ty)."""
+
+    profile = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'email', 'full_name', 'role', 'company_name', 'phone']
-        read_only_fields = ['id', 'email', 'role']
+        fields = ['id', 'email', 'full_name', 'phone', 'role', 'created_at', 'profile']
+        read_only_fields = fields
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_profile(self, user):
+        return registry.get_profile(user, request=self.context.get('request'))
 
 
-class RegisterSerializer(serializers.Serializer):
-    full_name = serializers.CharField(max_length=150)
-    email = serializers.EmailField()
-    password = serializers.CharField(min_length=6, write_only=True)
-    role = serializers.ChoiceField(choices=[User.CANDIDATE, User.RECRUITER])
-    company_name = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
+class UserBriefSerializer(serializers.Serializer):
+    """Người thao tác (người đăng tin, người đổi trạng thái hồ sơ...)."""
 
-    def validate_email(self, value):
-        normalized = value.strip().lower()
-        if User.objects.filter(email=normalized).exists():
-            raise serializers.ValidationError('Email đã được sử dụng.')
-        return normalized
-
-    def validate(self, data):
-        if data.get('role') == User.RECRUITER and not data.get('company_name', '').strip():
-            raise serializers.ValidationError({'company_name': 'Nhà tuyển dụng phải cung cấp tên công ty.'})
-        return data
-
-    def create(self, validated_data):
-        password = validated_data.pop('password')
-        user = User(**validated_data)
-        user.set_password(password)
-        user.save()
-        return user
+    id = serializers.UUIDField()
+    full_name = serializers.CharField()
 
 
-class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
+class AccountUpdateSerializer(serializers.Serializer):
+    full_name = serializers.CharField(max_length=150, required=False)
+    phone = serializers.CharField(max_length=20, required=False, allow_blank=True, validators=[phone_validator])
 
-    def validate(self, data):
-        email = data['email'].strip().lower()
-        password = data['password']
-        user = authenticate(request=self.context.get('request'), username=email, password=password)
-        if not user:
-            raise serializers.ValidationError({'detail': 'Email hoặc mật khẩu không đúng.'})
-        if not user.is_active:
-            raise serializers.ValidationError({'detail': 'Tài khoản đã bị khóa.'})
-        data['user'] = user
+
+class LoginSerializer(TokenObtainPairSerializer):
+    default_error_messages = {'no_active_account': 'Email hoặc mật khẩu không đúng.'}
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        data['user'] = UserSerializer(self.user, context=self.context).data
         return data
 
 
-class UpdateProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['full_name', 'company_name', 'phone']
+class TokenPairSerializer(serializers.Serializer):
+    access = serializers.CharField()
+    refresh = serializers.CharField()
+
+
+class SessionSerializer(TokenPairSerializer):
+    """Response của đăng nhập / đăng ký."""
+
+    user = UserSerializer()
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(style={'input_type': 'password'})
+    new_password = serializers.CharField(style={'input_type': 'password'})
+
+    def validate(self, attrs):
+        if attrs['current_password'] == attrs['new_password']:
+            raise serializers.ValidationError({'new_password': 'Mật khẩu mới phải khác mật khẩu hiện tại.'})
+        validate_password(attrs['new_password'], user=self.context['request'].user)
+        return attrs

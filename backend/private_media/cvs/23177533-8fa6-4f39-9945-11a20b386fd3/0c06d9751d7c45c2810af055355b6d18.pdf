@@ -1,0 +1,50 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Length 1178 >>
+stream
+BT /F2 20 Tf 50 800 Td (Le Thi Cuc) Tj ET
+BT /F1 13 Tf 50 770 Td (Backend Developer) Tj ET
+BT /F1 10 Tf 50 751 Td (Email: cuc.le@demo.com  |  Dien thoai: 0901 111 220) Tj ET
+BT /F2 12 Tf 50 726 Td (GIOI THIEU) Tj ET
+BT /F1 10 Tf 50 708 Td (Backend Developer 3 nam kinh nghiem Python/Django, tung thiet ke he thong API phuc vu 200.000 nguoi) Tj ET
+BT /F1 10 Tf 50 693 Td (dung. Manh ve toi uu truy van PostgreSQL va kien truc microservice.) Tj ET
+BT /F2 12 Tf 50 668 Td (KY NANG) Tj ET
+BT /F1 10 Tf 50 650 Td (Python, Django, REST API, PostgreSQL, Docker, Redis, Git, Celery) Tj ET
+BT /F2 12 Tf 50 625 Td (KINH NGHIEM) Tj ET
+BT /F1 10 Tf 50 607 Td (- Backend Developer - Cong ty TNHH Giai phap So Viet \(06/2023 - nay\): xay dung 40+ API cho ung dung) Tj ET
+BT /F1 10 Tf 50 592 Td (thuong mai dien tu, giam 35% thoi gian phan hoi nho Redis cache.) Tj ET
+BT /F1 10 Tf 50 577 Td (- Python Developer - Startup EduTech \(01/2022 - 05/2023\): phat trien he thong quan ly khoa hoc bang) Tj ET
+BT /F1 10 Tf 50 562 Td (Django.) Tj ET
+BT /F2 12 Tf 50 537 Td (HOC VAN) Tj ET
+BT /F1 10 Tf 50 519 Td (Hoc vien Cong nghe Buu chinh Vien thong - Ky su Cong nghe thong tin \(2020 - 2025\)) Tj ET
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000000348 00000 n 
+0000000450 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+1680
+%%EOF
