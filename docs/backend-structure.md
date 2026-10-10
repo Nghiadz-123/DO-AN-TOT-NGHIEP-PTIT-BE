@@ -26,6 +26,7 @@ DO-AN-TOT-NGHIEP-PTIT-BE/
 │       ├── cvs/                # CV
 │       ├── jobs/               # Tin tuyển dụng
 │       ├── applications/       # Ứng tuyển (ATS)
+│       ├── favorites/          # Việc làm / công ty ứng viên yêu thích
 │       └── ai/                 # AI / LLM
 ├── database/
 │   └── schema.sql
@@ -97,7 +98,7 @@ Quản lý User (custom user model, có `role`: candidate / employer / admin), �
 
 ### `candidates/` — Ứng viên
 
-Hồ sơ ứng viên: thông tin cá nhân, học vấn, kinh nghiệm, kỹ năng, mong muốn công việc, job đã lưu. Ứng viên chỉ quản lý dữ liệu của chính mình.
+Hồ sơ ứng viên: thông tin cá nhân, học vấn, kinh nghiệm, kỹ năng, mong muốn công việc. Ứng viên chỉ quản lý dữ liệu của chính mình.
 
 ### `employers/` — Nhà tuyển dụng
 
@@ -118,6 +119,11 @@ Upload và quản lý file CV, trích xuất text, lưu dữ liệu đã bóc t�
 Tin tuyển dụng (JD), ngành nghề, kỹ năng yêu cầu, địa điểm, mức lương, trạng thái (draft/published/closed).
 
 - `filters.py`: bộ lọc tìm kiếm job (django-filter).
+- Danh bạ công ty công khai (`companies/`) cũng đặt ở đây vì cần đếm tin đang tuyển (jobs phụ thuộc employers, không ngược lại).
+
+### `favorites/` — Yêu thích
+
+Ứng viên đánh dấu yêu thích việc làm và công ty (`candidate/favorites/...`). App đứng trên `candidates`, `jobs`, `employers`; các app đó không import ngược lại.
 
 ### `applications/` — Ứng tuyển / ATS
 

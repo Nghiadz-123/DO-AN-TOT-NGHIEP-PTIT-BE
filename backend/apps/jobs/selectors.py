@@ -1,6 +1,8 @@
 """Các truy vấn đọc tin tuyển dụng (lọc, annotate, tối ưu query)."""
 from django.db.models import Count, Prefetch, Q
 
+from apps.employers.models import Company
+
 from . import workflow
 from .models import Job, JobSkill, JobStatus
 
@@ -25,7 +27,7 @@ def public_jobs():
     """Tin đang tuyển (đã đăng, chưa hết hạn) của công ty chưa bị xóa."""
     return (
         Job.objects.filter(workflow.status_q(JobStatus.PUBLISHED), company__deleted_at__isnull=True)
-        .select_related('company', 'location')
+        .select_related('company', 'location', 'industry')
         .prefetch_related(_SKILLS_PREFETCH)
     )
 
@@ -37,4 +39,15 @@ def public_job_detail_queryset():
         .filter(company__deleted_at__isnull=True)
         .select_related('company', 'location', 'industry')
         .prefetch_related(_SKILLS_PREFETCH)
+    )
+
+
+def public_companies():
+    """Danh bạ công ty công khai (chưa bị xóa), kèm số tin đang tuyển.
+
+    Đặt ở jobs thay vì employers vì cần quy tắc "đang tuyển" của tin (jobs phụ thuộc employers, không ngược lại).
+    """
+    open_jobs = workflow.status_q(JobStatus.PUBLISHED, prefix='jobs__') & Q(jobs__deleted_at__isnull=True)
+    return Company.objects.select_related('location', 'industry').annotate(
+        open_job_count=Count('jobs', filter=open_jobs, distinct=True)
     )

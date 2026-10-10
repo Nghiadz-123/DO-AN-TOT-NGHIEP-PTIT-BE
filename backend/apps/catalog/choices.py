@@ -20,10 +20,11 @@ class WorkMode(models.TextChoices):
 
 
 class JobLevel(models.TextChoices):
+    """Cấp bậc dùng chung cho mọi ngành nghề (không dùng thang Junior/Middle/Senior riêng của ngành IT)."""
+
     INTERN = 'intern', 'Thực tập sinh'
-    FRESHER = 'fresher', 'Fresher'
-    JUNIOR = 'junior', 'Junior'
-    MIDDLE = 'middle', 'Middle'
-    SENIOR = 'senior', 'Senior'
-    LEAD = 'lead', 'Trưởng nhóm'
-    MANAGER = 'manager', 'Quản lý'
+    FRESHER = 'fresher', 'Mới tốt nghiệp'
+    STAFF = 'staff', 'Nhân viên'
+    SUPERVISOR = 'supervisor', 'Trưởng nhóm / Giám sát'
+    MANAGER = 'manager', 'Trưởng / Phó phòng'
+    DIRECTOR = 'director', 'Giám đốc / Cấp cao'

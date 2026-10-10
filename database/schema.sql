@@ -1,22 +1,4 @@
--- =====================================================================
--- ATS + AI: PostgreSQL schema (tài liệu thiết kế)
---
--- Nguồn chính vẫn là Django migrations. File này dùng để review thiết kế
--- và đối chiếu khi viết models. Giải thích chi tiết: docs/database-design.md
---
--- Yêu cầu PostgreSQL >= 13 (có sẵn gen_random_uuid()).
--- Quy ước:
---   * Bảng nghiệp vụ dùng khóa UUID; bảng danh mục/log dùng BIGINT identity.
---   * Enum = VARCHAR + CHECK (tương ứng TextChoices của Django, dễ migrate).
---   * deleted_at != NULL nghĩa là đã xóa mềm.
---   * updated_at do Django cập nhật (auto_now), không dùng trigger.
---   * Embedding lưu ở ChromaDB, không lưu trong PostgreSQL.
--- =====================================================================
 
-
--- =====================================================================
--- CATALOG: danh mục dùng chung (app mới: apps/catalog)
--- =====================================================================
 
 CREATE TABLE skills (
     id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -89,8 +71,8 @@ CREATE TABLE candidate_profiles (
     summary              TEXT,
     years_of_experience  NUMERIC(4,1) CHECK (years_of_experience >= 0),
     current_level        VARCHAR(20)
-                         CHECK (current_level IN ('intern', 'fresher', 'junior', 'middle',
-                                                  'senior', 'lead', 'manager')),
+                         CHECK (current_level IN ('intern', 'fresher', 'staff', 'supervisor',
+                                                  'manager', 'director')),
     desired_position     VARCHAR(150),
     desired_salary_min   BIGINT CHECK (desired_salary_min >= 0),
     desired_salary_max   BIGINT,
@@ -277,8 +259,8 @@ CREATE TABLE jobs (
     work_mode              VARCHAR(20) NOT NULL DEFAULT 'onsite'
                            CHECK (work_mode IN ('onsite', 'remote', 'hybrid')),
     level                  VARCHAR(20) NOT NULL
-                           CHECK (level IN ('intern', 'fresher', 'junior', 'middle',
-                                            'senior', 'lead', 'manager')),
+                           CHECK (level IN ('intern', 'fresher', 'staff', 'supervisor',
+                                            'manager', 'director')),
     min_years_experience   NUMERIC(4,1) NOT NULL DEFAULT 0,
     salary_min             BIGINT CHECK (salary_min >= 0),
     salary_max             BIGINT,
@@ -321,13 +303,21 @@ CREATE TABLE job_skills (
 );
 CREATE INDEX idx_job_skills_skill ON job_skills (skill_id);
 
--- Job ứng viên đã lưu (thuộc app candidates)
-CREATE TABLE saved_jobs (
+-- Việc làm / công ty ứng viên yêu thích (thuộc app favorites)
+CREATE TABLE favorite_jobs (
     id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     candidate_id  UUID NOT NULL REFERENCES candidate_profiles (id) ON DELETE CASCADE,
     job_id        UUID NOT NULL REFERENCES jobs (id) ON DELETE CASCADE,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (candidate_id, job_id)
+);
+
+CREATE TABLE favorite_companies (
+    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    candidate_id  UUID NOT NULL REFERENCES candidate_profiles (id) ON DELETE CASCADE,
+    company_id    UUID NOT NULL REFERENCES companies (id) ON DELETE CASCADE,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (candidate_id, company_id)
 );
 
 
@@ -410,7 +400,7 @@ CREATE TABLE cv_analyses (
     strengths       JSONB,          -- ["...", "..."]
     weaknesses      JSONB,
     summary         TEXT,
-    detected_level  VARCHAR(20),    -- level AI ước lượng (junior/middle...)
+    detected_level  VARCHAR(20),    -- cấp bậc AI ước lượng (staff/supervisor...)
     provider        VARCHAR(30),
     model_name      VARCHAR(100),
     prompt_version  VARCHAR(20),

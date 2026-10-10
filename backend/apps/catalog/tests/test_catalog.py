@@ -14,11 +14,23 @@ def test_locations_are_public_and_complete(api_client):
     assert res.data[0] == {'id': 1, 'name': 'Hà Nội', 'slug': 'ha-noi'}
 
 
-def test_industries_are_public(api_client):
+def test_industries_are_public_and_cover_many_sectors(api_client):
     res = api_client.get('/api/v1/catalog/industries/')
 
     assert res.status_code == 200
-    assert any(i['name'] == 'Công nghệ thông tin' for i in res.data)
+    names = {i['name'] for i in res.data}
+    assert {'Công nghệ thông tin', 'Kinh doanh - Bán hàng', 'Kế toán - Kiểm toán', 'Y tế - Dược phẩm',
+            'Cơ khí - Chế tạo', 'Lao động phổ thông'} <= names
+    # CNTT là một ngành ngang hàng, không còn ngành con riêng
+    assert not {'Phát triển phần mềm', 'Trí tuệ nhân tạo & Dữ liệu'} & names
+
+
+def test_skills_cover_non_it_sectors(api_client):
+    def search(text):
+        return [s['name'] for s in api_client.get('/api/v1/catalog/skills/', {'search': text}).data]
+
+    assert 'Kế toán tổng hợp' in search('kế toán')
+    assert search('CSKH') == ['Chăm sóc khách hàng']  # tìm theo tên gọi khác
 
 
 def test_skill_search_matches_name_and_alias(api_client):

@@ -4,7 +4,8 @@ Tài liệu cho phần backend dành cho **Ứng viên**, dựng theo đúng khu
 `urls → views (mỏng) → serializers (validate) → services (ghi) / selectors (đọc) → models`,
 permission theo vai trò + mixin giới hạn dữ liệu, domain event phát sau commit, test pytest cho từng app.
 
-Swagger: `http://localhost:8000/api/docs/` — nhóm **Candidate - Tài khoản**, **Candidate - CV**, **Candidate - Ứng tuyển**.
+Swagger: `http://localhost:8000/api/docs/` — nhóm **Candidate - Tài khoản**, **Candidate - CV**, **Candidate - Ứng tuyển**,
+**Candidate - Yêu thích**, **Companies (công khai)**.
 
 ---
 
@@ -17,7 +18,9 @@ Swagger: `http://localhost:8000/api/docs/` — nhóm **Candidate - Tài khoản*
 | **UC-03 Tải lên CV** | **Đầy đủ**: upload PDF/DOCX ≤ 5 MB, kiểm tra nội dung file, lưu riêng tư, bóc tách văn bản + liên hệ (không dùng AI), quản lý nhiều CV, CV mặc định, xem/tải file. Phân tích, chấm điểm bằng AI: module `ai` (giai đoạn sau) nghe event `cv_parsed`. |
 | UC-08 Ứng tuyển | Nộp bằng CV đã tải lên (hoặc CV mặc định) + thư giới thiệu. Dùng lại đúng service `submit_application` của giai đoạn 1. |
 | UC-09 Theo dõi đơn ứng tuyển | Danh sách, chi tiết, lịch sử trạng thái, rút hồ sơ. |
-| UC-04, 05, 07 (gợi ý sửa CV, việc làm đề xuất, lưu tin) | Giai đoạn sau. |
+| UC-07 Lưu tin (mở rộng: yêu thích việc làm **và công ty**) | App `favorites`: thêm / bỏ / xem danh sách yêu thích. |
+| Xem, tìm kiếm công ty | Danh bạ công ty công khai: tìm theo tên, lọc ngành nghề / tỉnh, hồ sơ công ty + tin đang tuyển. |
+| UC-04, 05 (gợi ý sửa CV, việc làm đề xuất) | Giai đoạn sau (module AI). |
 
 Giả định:
 - Chưa có Celery: bóc tách CV chạy **ngay sau khi transaction commit, cùng tiến trình** (xem `cvs/tasks.py`).
@@ -84,6 +87,20 @@ Tất cả nằm dưới `/api/v1/`, cần `Authorization: Bearer <access>` (tr�
 | POST | `candidate/applications/` | Ứng tuyển `{job_id, cv_id?, cover_letter?}` → 201 |
 | GET | `candidate/applications/{id}/` | Chi tiết: tin, CV đã nộp, thư giới thiệu, lịch sử trạng thái |
 | POST | `candidate/applications/{id}/withdraw/` | Rút hồ sơ `{reason?}` |
+| GET | `candidate/favorites/ids/` | `{jobs: [id], companies: [id]}` đang yêu thích (để đánh dấu nút ♥) |
+| GET / POST | `candidate/favorites/jobs/` | Việc làm yêu thích (phân trang) / thêm `{job_id}` → 201 (đã có → 200) |
+| DELETE | `candidate/favorites/jobs/{job_id}/` | Bỏ yêu thích theo id tin → 204 |
+| GET / POST | `candidate/favorites/companies/` | Công ty yêu thích / thêm `{company_id}` → 201 (đã có → 200) |
+| DELETE | `candidate/favorites/companies/{company_id}/` | Bỏ yêu thích theo id công ty → 204 |
+
+API công khai (không cần đăng nhập) phục vụ phần xem công ty:
+
+| Method | Đường dẫn | Mô tả |
+|---|---|---|
+| GET | `companies/` | Danh bạ công ty (`?q=` tên, `?industry=`, `?location=`, phân trang), kèm `open_job_count`; công ty nhiều tin đang tuyển đứng trước |
+| GET | `companies/{id}/` | Hồ sơ công ty (không gồm mã số thuế, email / SĐT liên hệ) |
+| GET | `jobs/?company={id}` | Tin đang tuyển của một công ty |
+| GET | `jobs/?posted_within=1\|3\|7\|14\|30` | Tin đăng trong N ngày gần đây (kết hợp được với `industry`, `level`, `location`, `job_type`, `q`) |
 
 `GET /auth/me/` của ứng viên có `profile = {candidate_id, headline, is_open_to_work, cv_count}`
 (`cv_count = 0` → frontend đưa ứng viên tới trang tải CV).
@@ -148,6 +165,13 @@ CV
 - CV chưa bóc tách xong vẫn được nộp (UC-08).
 - Rút hồ sơ khi đang `applied / screening / interview / offer`; `hired / rejected / withdrawn` → 409
   `invalid_status_transition`. Lý do rút ghi vào lịch sử, NTD thấy được; phát `application_status_changed`.
+
+Yêu thích
+- Chỉ yêu thích được tin đang hiển thị công khai (không phải bản nháp, chưa xóa, công ty chưa xóa); tin đã đóng /
+  hết hạn vẫn thêm được và vẫn nằm trong danh sách (kèm `status` để frontend hiển thị).
+- Tin / công ty bị xóa sau đó tự ẩn khỏi danh sách và khỏi `ids`.
+- Thêm lặp lại trả 200, bỏ khi chưa yêu thích trả 204: bấm nhiều lần hoặc mở nhiều tab không gây lỗi.
+- Danh sách yêu thích là riêng tư của từng ứng viên; nhà tuyển dụng không xem được.
 
 ## 6. Mã lỗi mới
 

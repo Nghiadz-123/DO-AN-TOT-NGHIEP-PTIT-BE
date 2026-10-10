@@ -148,21 +148,37 @@ class EmployerJobWriteSerializer(serializers.ModelSerializer):
 
 class PublicJobListSerializer(_JobReadSerializer):
     company = CompanyBriefSerializer(read_only=True)
+    industry = IndustrySerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = Job
         fields = [
-            'id', 'title', 'slug', 'company', 'location', 'job_type', 'work_mode', 'level', 'salary_min',
-            'salary_max', 'salary_currency', 'is_salary_negotiable', 'deadline', 'skills', 'status',
+            'id', 'title', 'slug', 'company', 'location', 'industry', 'job_type', 'work_mode', 'level',
+            'salary_min', 'salary_max', 'salary_currency', 'is_salary_negotiable', 'deadline', 'skills', 'status',
             'published_at', 'created_at',
         ]
 
 
 class PublicJobDetailSerializer(PublicJobListSerializer):
-    industry = IndustrySerializer(read_only=True)
-
     class Meta(PublicJobListSerializer.Meta):
         fields = PublicJobListSerializer.Meta.fields + [
             'description', 'requirements', 'benefits', 'min_years_experience', 'headcount', 'address',
-            'industry', 'application_count', 'view_count',
+            'application_count', 'view_count',
         ]
+
+
+# ============================================================================ danh bạ công ty (công khai)
+class PublicCompanyListSerializer(CompanyBriefSerializer):
+    location = LocationSerializer(read_only=True, allow_null=True)
+    industry = IndustrySerializer(read_only=True, allow_null=True)
+    open_job_count = serializers.IntegerField(read_only=True, help_text='Số tin đang tuyển')
+
+    class Meta(CompanyBriefSerializer.Meta):
+        fields = CompanyBriefSerializer.Meta.fields + ['location', 'industry', 'company_size', 'open_job_count']
+
+
+class PublicCompanyDetailSerializer(PublicCompanyListSerializer):
+    """Hồ sơ công ty công khai: không gồm mã số thuế, email / điện thoại liên hệ nội bộ."""
+
+    class Meta(PublicCompanyListSerializer.Meta):
+        fields = PublicCompanyListSerializer.Meta.fields + ['website', 'address', 'founded_year', 'description']

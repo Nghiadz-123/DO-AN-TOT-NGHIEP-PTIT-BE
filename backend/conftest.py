@@ -88,7 +88,7 @@ def job_payload(future_date):
             'benefits': 'Lương tháng 13',
             'job_type': 'full_time',
             'work_mode': 'hybrid',
-            'level': 'middle',
+            'level': 'staff',
             'salary_min': 20_000_000,
             'salary_max': 30_000_000,
             'location_id': 1,
@@ -109,7 +109,7 @@ def make_job(recruiter, future_date):
             'description': 'Mô tả',
             'requirements': 'Yêu cầu',
             'job_type': 'full_time',
-            'level': 'junior',
+            'level': 'staff',
             'deadline': future_date(),
         }
         data.update(overrides)

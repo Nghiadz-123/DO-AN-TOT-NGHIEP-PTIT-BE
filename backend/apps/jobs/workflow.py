@@ -47,10 +47,17 @@ def allowed_actions(job, *, has_applications: bool) -> list[str]:
     return actions
 
 
-def status_q(status: str) -> Q:
-    """Điều kiện lọc theo trạng thái hiệu lực (dùng trong queryset)."""
+def status_q(status: str, prefix: str = '') -> Q:
+    """Điều kiện lọc theo trạng thái hiệu lực (dùng trong queryset).
+
+    `prefix` để lọc qua quan hệ, vd. `status_q(JobStatus.PUBLISHED, prefix='jobs__')` trên queryset Company.
+    """
+
+    def q(**lookups):
+        return Q(**{f'{prefix}{field}': value for field, value in lookups.items()})
+
     if status == JobStatus.EXPIRED:
-        return Q(status=JobStatus.EXPIRED) | Q(status=JobStatus.PUBLISHED, deadline__lt=today())
+        return q(status=JobStatus.EXPIRED) | q(status=JobStatus.PUBLISHED, deadline__lt=today())
     if status == JobStatus.PUBLISHED:
-        return Q(status=JobStatus.PUBLISHED) & (Q(deadline__isnull=True) | Q(deadline__gte=today()))
-    return Q(status=status)
+        return q(status=JobStatus.PUBLISHED) & (q(deadline__isnull=True) | q(deadline__gte=today()))
+    return q(status=status)

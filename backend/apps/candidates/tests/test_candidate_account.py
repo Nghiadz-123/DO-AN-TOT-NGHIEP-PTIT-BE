@@ -121,7 +121,7 @@ def test_update_profile(candidate_client, candidate):
         {
             'full_name': ' Nguyễn Văn An ', 'phone': '0987654321', 'headline': 'Backend Developer | 3 năm Python',
             'date_of_birth': '2000-05-20', 'gender': 'male', 'location_id': 1, 'summary': 'Giới thiệu',
-            'years_of_experience': 3, 'current_level': 'middle', 'desired_position': 'Backend Developer',
+            'years_of_experience': 3, 'current_level': 'staff', 'desired_position': 'Backend Developer',
             'desired_salary_min': 25_000_000, 'desired_salary_max': 35_000_000, 'desired_job_type': 'full_time',
             'desired_work_mode': 'hybrid', 'is_public': True,
         },
@@ -133,7 +133,7 @@ def test_update_profile(candidate_client, candidate):
     assert res.data['location']['name'] == 'Hà Nội'
     assert res.data['years_of_experience'] == 3
     profile = CandidateProfile.objects.get(pk=candidate.pk)
-    assert (profile.user.phone, profile.current_level, profile.is_public) == ('0987654321', 'middle', True)
+    assert (profile.user.phone, profile.current_level, profile.is_public) == ('0987654321', 'staff', True)
     # Thông tin hiển thị lên /auth/me/
     assert candidate_client.get('/api/v1/auth/me/').data['profile']['headline'] == 'Backend Developer | 3 năm Python'
 

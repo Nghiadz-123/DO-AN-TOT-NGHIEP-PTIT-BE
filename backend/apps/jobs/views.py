@@ -7,12 +7,14 @@ from rest_framework.response import Response
 from apps.employers.permissions import EmployerAccessMixin
 
 from . import selectors, services
-from .filters import EmployerJobFilter, PublicJobFilter
+from .filters import EmployerJobFilter, PublicCompanyFilter, PublicJobFilter
 from .models import Job, JobStatus
 from .serializers import (
     EmployerJobDetailSerializer,
     EmployerJobListSerializer,
     EmployerJobWriteSerializer,
+    PublicCompanyDetailSerializer,
+    PublicCompanyListSerializer,
     PublicJobDetailSerializer,
     PublicJobListSerializer,
 )
@@ -124,3 +126,23 @@ class PublicJobViewSet(viewsets.ReadOnlyModelViewSet):
         job = self.get_object()
         services.record_view(job)
         return Response(self.get_serializer(job).data)
+
+
+@extend_schema_view(
+    list=extend_schema(tags=['Companies (công khai)'], summary='Danh bạ công ty: tìm theo tên, lọc ngành nghề / tỉnh'),
+    retrieve=extend_schema(tags=['Companies (công khai)'], summary='Hồ sơ công ty'),
+)
+class PublicCompanyViewSet(viewsets.ReadOnlyModelViewSet):
+    """Danh bạ công ty cho ứng viên. Tin đang tuyển của một công ty lấy qua GET /jobs/?company=<id>."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    filterset_class = PublicCompanyFilter
+    ordering_fields = ['name', 'open_job_count']
+    ordering = ['-open_job_count', 'name']
+
+    def get_queryset(self):
+        return selectors.public_companies()
+
+    def get_serializer_class(self):
+        return PublicCompanyListSerializer if self.action == 'list' else PublicCompanyDetailSerializer

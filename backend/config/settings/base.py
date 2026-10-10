@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'apps.cvs',
     'apps.jobs',
     'apps.applications',
+    'apps.favorites',
 ]
 
 MIDDLEWARE = [
