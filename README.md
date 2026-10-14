@@ -33,13 +33,13 @@ Dự án xây dựng một hệ thống web kết nối tuyển dụng, tích h�
 
 ## ⚙️ Cài đặt môi trường Backend
 
-Yêu cầu: Python 3.12, PostgreSQL ≥ 13 (hoặc SQLite để chạy nhanh).
+Yêu cầu: Python 3.11 - 3.13, PostgreSQL ≥ 13 (hoặc SQLite để chạy nhanh).
 
 **1. Clone project và tạo môi trường ảo**
 ```bash
 git clone <repo-url>
 cd DO-AN-TOT-NGHIEP-PTIT-BE/backend
-py -3.12 -m venv venv
+py -3.13 -m venv venv
 venv\Scripts\activate   # Windows
 pip install -r requirements.txt
 ```
@@ -58,7 +58,11 @@ DB_PASSWORD=your_password
 DB_HOST=localhost
 DB_PORT=5432
 ```
-
+**Chạy nhanh bằng SQLite (không cần cài PostgreSQL):** trong `backend/.env` đặt
+```env
+DB_ENGINE=sqlite
+DB_NAME=db.sqlite3
+```
 **4. Chạy project**
 ```bash
 python manage.py migrate
