@@ -184,7 +184,7 @@ def _mark_parse_failed(cv: CV, message: str) -> CV:
 
 def _lock_candidate(candidate_id) -> None:
     """Khóa hồ sơ ứng viên trong transaction để các thao tác CV đồng thời của cùng một ứng viên chạy
-    tuần tự (giới hạn số CV, ràng buộc tối đa 1 CV mặc định). SQLite bỏ qua select_for_update."""
+    tuần tự (giới hạn số CV, ràng buộc tối đa 1 CV mặc định). Khóa bằng select_for_update."""
     list(CandidateProfile.objects.select_for_update().filter(pk=candidate_id).values_list('pk', flat=True))
 
 

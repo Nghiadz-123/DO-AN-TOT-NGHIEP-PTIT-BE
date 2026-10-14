@@ -33,7 +33,7 @@ Dự án xây dựng một hệ thống web kết nối tuyển dụng, tích h�
 
 ## ⚙️ Cài đặt môi trường Backend
 
-Yêu cầu: Python 3.12, PostgreSQL ≥ 13 (hoặc SQLite để chạy nhanh).
+Yêu cầu: Python 3.12, PostgreSQL ≥ 13.
 
 **1. Clone project và tạo môi trường ảo**
 ```bash
@@ -51,7 +51,6 @@ CREATE DATABASE ats_db;
 
 **3. Cấu hình biến môi trường**: sao chép `backend/.env.example` thành `backend/.env` rồi điền mật khẩu DB
 ```env
-DB_ENGINE=postgresql        # hoặc sqlite (không cần cài PostgreSQL)
 DB_NAME=ats_db
 DB_USER=postgres
 DB_PASSWORD=your_password

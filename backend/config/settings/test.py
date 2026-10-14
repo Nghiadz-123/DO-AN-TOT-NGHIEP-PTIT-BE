@@ -2,12 +2,10 @@ import tempfile
 from pathlib import Path
 
 from .base import *  # noqa: F401,F403
-from .base import REST_FRAMEWORK, env
+from .base import REST_FRAMEWORK
 
-# Mặc định test chạy trên SQLite in-memory cho nhanh.
-# Chạy trên PostgreSQL: đặt TEST_DB_ENGINE=postgresql (dùng các biến DB_* trong .env).
-if env('TEST_DB_ENGINE', default='sqlite') == 'sqlite':
-    DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}}
+# Test chạy trên PostgreSQL theo các biến DB_* trong .env: Django tự tạo database riêng `test_<DB_NAME>`
+# rồi xóa sau khi chạy xong, không đụng tới dữ liệu thật. User DB cần quyền CREATEDB.
 
 PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 

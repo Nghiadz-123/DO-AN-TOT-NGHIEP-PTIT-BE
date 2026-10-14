@@ -46,7 +46,7 @@ def resolve_skills(names: Iterable[str]) -> list[Skill | None]:
 
 def _find_by_alias(name: str) -> Skill | None:
     target = name.lower()
-    # icontains trên JSON chạy được cả PostgreSQL lẫn SQLite; lọc chính xác lại bằng Python
+    # Lọc thô bằng icontains trên JSON rồi so khớp chính xác lại bằng Python
     for skill in Skill.objects.filter(aliases__icontains=name):
         if any(str(alias).lower() == target for alias in skill.aliases):
             return skill

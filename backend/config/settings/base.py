@@ -69,27 +69,20 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
-# --- Database: PostgreSQL là mặc định; DB_ENGINE=sqlite để chạy nhanh khi chưa cài PostgreSQL ---
-DB_ENGINE = env('DB_ENGINE', default='postgresql')
-if DB_ENGINE == 'sqlite':
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / env('DB_NAME', default='db.sqlite3'),
-        }
+# --- Database: PostgreSQL (thông tin kết nối khai báo trong .env, xem .env.example) ---
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': env('DB_NAME', default='ats_db'),
+        'USER': env('DB_USER', default='postgres'),
+        'PASSWORD': env('DB_PASSWORD', default=''),
+        'HOST': env('DB_HOST', default='localhost'),
+        'PORT': env('DB_PORT', default='5432'),
+        'CONN_MAX_AGE': 60,
+        'CONN_HEALTH_CHECKS': True,  # kết nối giữ lại bị server đóng thì tự mở lại
+        'OPTIONS': {'connect_timeout': 5},  # sai host / server chưa chạy: báo lỗi sau 5 giây thay vì treo
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': env('DB_NAME', default='ats_db'),
-            'USER': env('DB_USER', default='postgres'),
-            'PASSWORD': env('DB_PASSWORD', default=''),
-            'HOST': env('DB_HOST', default='localhost'),
-            'PORT': env('DB_PORT', default='5432'),
-            'CONN_MAX_AGE': 60,
-        }
-    }
+}
 
 AUTH_USER_MODEL = 'accounts.User'
 
