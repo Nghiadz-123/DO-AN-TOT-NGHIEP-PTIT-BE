@@ -70,3 +70,21 @@ class CV(UUIDModel, TimeStampedModel, SoftDeleteModel):
 
     def __str__(self):
         return self.title
+
+
+class CVBuilderDocument(UUIDModel, TimeStampedModel):
+    """Nội dung CV được tạo từ trình dựng CV của ứng viên."""
+
+    candidate = models.OneToOneField(
+        'candidates.CandidateProfile', on_delete=models.CASCADE, related_name='cv_builder_document',
+        verbose_name='ứng viên',
+    )
+    content = models.JSONField('nội dung CV', default=dict)
+
+    class Meta:
+        db_table = 'cv_builder_documents'
+        verbose_name = 'nội dung CV tự tạo'
+        verbose_name_plural = 'nội dung CV tự tạo'
+
+    def __str__(self):
+        return f'CV tự tạo - {self.candidate}'
