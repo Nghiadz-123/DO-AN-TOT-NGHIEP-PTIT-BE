@@ -12,8 +12,10 @@ Nhà tuyển dụng demo (mật khẩu 123456, CHỈ dùng cho dev):
 Ứng viên demo (cùng mật khẩu): candidate@demo.com (kinh doanh), cuc.le@demo.com (kế toán),
 duc.pham@demo.com (cơ khí), ha.hoang@demo.com (điều dưỡng), huy.vu@demo.com, linh.do@demo.com
 candidate@demo.com và ha.hoang@demo.com có sẵn vài việc làm / công ty yêu thích.
+Mọi ứng viên trừ linh.do@demo.com bật "cho phép NTD tìm thấy" (trang Ứng viên phù hợp của NTD).
+recruiter@demo.com đã kết bạn và nhắn tin với candidate@demo.com, đang chờ cuc.le@demo.com nhận lời mời kết bạn.
 Tài khoản, CV (kèm bóc tách văn bản) và hồ sơ ứng tuyển được tạo qua đúng service mà API thật sử dụng
-(`register_candidate`, `upload_cv`, `submit_application`, `change_status`).
+(`register_candidate`, `upload_cv`, `submit_application`, `change_status`, `send_request`, `send_message`).
 """
 import textwrap
 from datetime import timedelta
@@ -31,6 +33,7 @@ from apps.applications import services as application_services
 from apps.applications.models import Application, ApplicationStatus as S, ApplicationStatusHistory
 from apps.candidates import services as candidate_services
 from apps.catalog.models import Industry, Location
+from apps.connections import services as connection_services
 from apps.cvs import services as cv_services
 from apps.cvs.models import CV, CVMimeType
 from apps.employers import services as employer_services
@@ -38,6 +41,7 @@ from apps.employers.models import Company, Recruiter, VerificationStatus
 from apps.favorites import services as favorite_services
 from apps.jobs import services as job_services
 from apps.jobs.models import Job
+from apps.messaging import services as message_services
 from common.utils import strip_accents
 
 DEMO_PASSWORD = '123456'
@@ -302,6 +306,21 @@ FAVORITES = [
     ('ha', ['nurse', 'pharma'], [HOA_AN]),
 ]
 
+# Ứng viên không bật "cho phép NTD tìm thấy": chỉ công ty đã nhận hồ sơ của họ mới thấy (Sao Việt)
+PRIVATE_CANDIDATES = {'linh'}
+
+# email NTD, ứng viên, tin liên quan, lời nhắn kèm lời mời, đã chấp nhận?, tin nhắn sau khi kết bạn (người gửi, nội dung)
+CONNECTIONS = [
+    (SAO_VIET, 'an', 'sales',
+     'Chào An, chị là Bình - Trưởng phòng Nhân sự Sao Việt. Kinh nghiệm bán hàng B2B của em rất phù hợp với vị trí '
+     'Nhân viên kinh doanh khách hàng doanh nghiệp, mình trao đổi thêm nhé!', True,
+     [('candidate', 'Dạ em chào chị Bình, em rất quan tâm đến vị trí này ạ.'),
+      ('recruiter', 'Tuyệt quá! Chiều thứ Năm này em có thể qua văn phòng Láng Hạ trao đổi trực tiếp không?'),
+      ('candidate', 'Dạ được ạ, 15h chiều thứ Năm em qua nhé chị. Em cảm ơn chị!')]),
+    (SAO_VIET, 'cuc', 'acc',
+     'Chào Cúc, phòng Kế toán của Sao Việt muốn trao đổi thêm với em về kinh nghiệm quyết toán thuế.', False, []),
+]
+
 STEP_NOTES = {
     S.SCREENING: 'Hồ sơ phù hợp, chuyển sang vòng sàng lọc.',
     S.INTERVIEW: 'Mời phỏng vấn vòng 1 với quản lý trực tiếp.',
@@ -335,10 +354,11 @@ class Command(BaseCommand):
             candidates = self._create_candidates()
             count = self._create_applications(jobs, candidates, recruiters)
             favorite_count = self._create_favorites(jobs, candidates, recruiters)
+            connection_count = self._create_connections(jobs, candidates, recruiters)
 
         self.stdout.write(self.style.SUCCESS(
             f'Đã tạo {len(recruiters)} nhà tuyển dụng, {len(jobs)} tin, {len(candidates)} ứng viên, {count} hồ sơ, '
-            f'{favorite_count} lượt yêu thích.'
+            f'{favorite_count} lượt yêu thích, {connection_count} lời mời kết bạn.'
         ))
         self.stdout.write(f'Nhà tuyển dụng: recruiter@demo.com / {DEMO_PASSWORD} (hoặc tuyendung@anphat.demo, ...)')
         self.stdout.write(f'Ứng viên: candidate@demo.com / {DEMO_PASSWORD} (hoặc cuc.le@demo.com, ...)')
@@ -424,6 +444,7 @@ class Command(BaseCommand):
             candidate_services.update_candidate_profile(profile, data={
                 'headline': headline, 'years_of_experience': Decimal(years), 'current_level': level,
                 'location': Location.objects.get(slug=location), 'summary': summary, 'desired_position': headline,
+                'is_public': key not in PRIVATE_CANDIDATES,
             })
             pdf = build_pdf([
                 ('name', full_name), ('title', headline), ('text', f'Email: {email}  |  Dien thoai: {phone}'),
@@ -477,6 +498,24 @@ class Command(BaseCommand):
             for email in company_emails:
                 count += favorite_services.add_favorite_company(profile, recruiters[email].company)
         return count
+
+    # ------------------------------------------------------------------ kết bạn & tin nhắn
+    def _create_connections(self, jobs, candidates, recruiters):
+        for email, candidate_key, job_key, invitation, accepted, messages in CONNECTIONS:
+            recruiter = recruiters[email]
+            candidate_user = candidates[candidate_key][0].user
+            connection = connection_services.send_request(
+                recruiter=recruiter, addressee=candidate_user, message=invitation, job=jobs[job_key]
+            )
+            if not accepted:
+                continue
+            connection = connection_services.accept_request(connection, by=candidate_user)
+            # Tạo ngay thay vì chờ event sau commit để thêm tin nhắn (receiver chạy lại không tạo trùng)
+            conversation = message_services.start_conversation_from_connection(connection)
+            for who, body in messages:
+                sender = candidate_user if who == 'candidate' else recruiter.user
+                message_services.send_message(conversation, sender=sender, body=body)
+        return len(CONNECTIONS)
 
 
 # ---------------------------------------------------------------------- PDF tối giản (không cần thư viện)

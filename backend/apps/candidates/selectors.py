@@ -1,3 +1,5 @@
+from django.db.models import Q
+
 from .models import CandidateProfile
 
 
@@ -6,3 +8,15 @@ def get_candidate_profile(user) -> CandidateProfile | None:
     if not user or not user.is_authenticated:
         return None
     return CandidateProfile.objects.select_related('user', 'location').filter(user=user).first()
+
+
+def discoverable_candidates(company):
+    """Ứng viên mà nhà tuyển dụng của `company` được tìm thấy, xem CV mặc định và mời kết bạn:
+    ứng viên bật "cho phép NTD tìm thấy" (is_public) hoặc đã ứng tuyển vào một tin của công ty.
+
+    Lọc qua quan hệ ngược `applications` (chỉ dùng ORM, không import code của app applications).
+    """
+    applied = CandidateProfile.objects.filter(applications__job__company=company).values('pk')
+    return CandidateProfile.objects.filter(
+        Q(is_public=True) | Q(pk__in=applied), user__is_active=True, user__deleted_at__isnull=True
+    )

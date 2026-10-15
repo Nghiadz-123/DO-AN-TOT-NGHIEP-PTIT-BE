@@ -72,6 +72,8 @@ Giai đoạn 1 (đã triển khai): API dành cho **Nhà tuyển dụng** — xe
 
 Giai đoạn 2 (đã triển khai): API dành cho **Ứng viên** — đăng ký, hồ sơ, **tải lên CV** (PDF/DOCX, bóc tách văn bản), ứng tuyển và theo dõi hồ sơ — xem [docs/candidate-api.md](docs/candidate-api.md).
 
+Mở rộng (đã triển khai): **Ứng viên phù hợp** với tin tuyển dụng, **kết bạn** và **nhắn tin** giữa nhà tuyển dụng - ứng viên — xem [docs/talent-chat-api.md](docs/talent-chat-api.md).
+
 ---
 
 ## 📂 Cấu trúc thư mục
@@ -88,6 +90,10 @@ DO-AN-TOT-NGHIEP-PTIT-BE/
 │       ├── cvs/         # Upload, parse CV
 │       ├── jobs/        # Tin tuyển dụng
 │       ├── applications/# Ứng tuyển, pipeline ATS
+│       ├── favorites/   # Việc làm / công ty yêu thích
+│       ├── talents/     # Ứng viên phù hợp với tin tuyển dụng
+│       ├── connections/ # Kết bạn nhà tuyển dụng - ứng viên
+│       ├── messaging/   # Nhắn tin 1-1
 │       └── ai/          # LLM, prompts, vector store, 4 chức năng AI
 ├── database/
 ├── docs/
