@@ -33,7 +33,7 @@ Dự án xây dựng một hệ thống web kết nối tuyển dụng, tích h�
 
 ## ⚙️ Cài đặt môi trường Backend
 
-Yêu cầu: Python 3.12, PostgreSQL ≥ 13.
+Yêu cầu: Python 3.13, PostgreSQL ≥ 13.
 
 **1. Clone project và tạo môi trường ảo**
 ```bash
