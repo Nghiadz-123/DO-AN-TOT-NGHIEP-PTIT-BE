@@ -36,6 +36,9 @@ INSTALLED_APPS = [
     'apps.jobs',
     'apps.applications',
     'apps.favorites',
+    'apps.connections',
+    'apps.messaging',
+    'apps.talents',
 ]
 
 MIDDLEWARE = [
@@ -121,7 +124,12 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'EXCEPTION_HANDLER': 'common.exceptions.custom_exception_handler',
-    'DEFAULT_THROTTLE_RATES': {'auth': '20/min', 'cv_upload': '30/hour'},
+    'DEFAULT_THROTTLE_RATES': {
+        'auth': '20/min',
+        'cv_upload': '30/hour',
+        'connection_request': '60/hour',  # nhà tuyển dụng gửi lời mời kết bạn
+        'chat_message': '30/min',  # gửi tin nhắn
+    },
     'COERCE_DECIMAL_TO_STRING': False,
 }
 
@@ -143,7 +151,8 @@ CORS_EXPOSE_HEADERS = ['Content-Disposition']
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Smart ATS API',
     'DESCRIPTION': 'API nền tảng tuyển dụng (ATS). Giai đoạn 1: chức năng dành cho Nhà tuyển dụng. '
-    'Giai đoạn 2: chức năng dành cho Ứng viên (hồ sơ, tải lên CV, ứng tuyển).',
+    'Giai đoạn 2: chức năng dành cho Ứng viên (hồ sơ, tải lên CV, ứng tuyển). '
+    'Mở rộng: ứng viên phù hợp với tin tuyển dụng, kết bạn và nhắn tin giữa nhà tuyển dụng - ứng viên.',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
@@ -158,6 +167,7 @@ SPECTACULAR_SETTINGS = {
         'ApplicationTargetStatusEnum': ['screening', 'interview', 'offer', 'hired', 'rejected'],
         'RecruiterStatusEnum': 'apps.employers.models.RecruiterStatus',
         'CVParseStatusEnum': 'apps.cvs.models.CVParseStatus',
+        'ConnectionStatusEnum': 'apps.connections.models.ConnectionStatus',
     },
 }
 
