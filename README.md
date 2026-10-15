@@ -39,7 +39,7 @@ Yêu cầu: Python 3.13, PostgreSQL ≥ 13.
 ```bash
 git clone <repo-url>
 cd DO-AN-TOT-NGHIEP-PTIT-BE/backend
-py -3.12 -m venv venv
+py -3.13 -m venv venv
 venv\Scripts\activate   # Windows
 pip install -r requirements.txt
 ```
