@@ -81,3 +81,12 @@ class CVUploadSerializer(serializers.Serializer):
 
 class CVUpdateSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=150)
+
+
+class CVBuilderDocumentSerializer(serializers.Serializer):
+    content = serializers.JSONField()
+
+    def validate_content(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('Nội dung CV phải là một đối tượng JSON.')
+        return value

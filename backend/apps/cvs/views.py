@@ -2,6 +2,7 @@ from django.http import FileResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status, viewsets
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -11,8 +12,8 @@ from rest_framework.throttling import ScopedRateThrottle
 from apps.candidates.permissions import CandidateAccessMixin
 
 from . import selectors, services
-from .models import CV
-from .serializers import CVDetailSerializer, CVSerializer, CVUpdateSerializer, CVUploadSerializer
+from .models import CV, CVBuilderDocument
+from .serializers import CVBuilderDocumentSerializer, CVDetailSerializer, CVSerializer, CVUpdateSerializer, CVUploadSerializer
 
 TAG = ['Candidate - CV']
 
@@ -111,3 +112,20 @@ class CandidateCVViewSet(CandidateAccessMixin, viewsets.ModelViewSet):
     def _detail(self, cv):
         fresh = self.get_queryset().get(pk=cv.pk)  # đọc lại để có trạng thái bóc tách & số lần ứng tuyển mới nhất
         return CVDetailSerializer(fresh, context=self.get_serializer_context()).data
+
+
+@extend_schema(tags=TAG, summary='Lấy hoặc lưu nội dung CV tự tạo')
+class CandidateCVBuilderView(CandidateAccessMixin, APIView):
+    """Lưu một bản CV tự tạo cho ứng viên hiện tại, không tạo file upload giả."""
+
+    def get(self, request):
+        document = CVBuilderDocument.objects.filter(candidate=self.candidate).first()
+        return Response({'content': document.content if document else None})
+
+    def put(self, request):
+        serializer = CVBuilderDocumentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        document, _ = CVBuilderDocument.objects.update_or_create(
+            candidate=self.candidate, defaults={'content': serializer.validated_data['content']}
+        )
+        return Response({'content': document.content, 'updated_at': document.updated_at})
