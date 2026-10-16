@@ -2,7 +2,7 @@
 
 Stack: Django + Django REST Framework + PostgreSQL, Celery + Redis (xử lý bất đồng bộ các tác vụ AI), ChromaDB (vector store), LLM API (OpenAI / Gemini).
 
-> **Trạng thái**: giai đoạn 1 (chức năng Nhà tuyển dụng) đã triển khai trong `config`, `common`, `accounts`, `catalog`, `employers`, `jobs`, `applications` — xem [employer-api.md](employer-api.md). Giai đoạn 2 (chức năng Ứng viên: đăng ký, hồ sơ, tải lên CV, ứng tuyển) đã triển khai trong `candidates`, `cvs` và phần `candidate/applications` của `applications` — xem [candidate-api.md](candidate-api.md). Mở rộng: ứng viên phù hợp với tin (`talents`), kết bạn (`connections`) và nhắn tin (`messaging`) — xem [talent-chat-api.md](talent-chat-api.md). AI cho ứng viên (`ai`: chấm điểm CV, gợi ý sửa CV, gợi ý việc làm bằng Gemini) — xem [ai-api.md](ai-api.md); các file còn rỗng trong `ai/` (xếp hạng ứng viên cho NTD, OpenAI, Celery task) thuộc giai đoạn sau. Không chạy `django-admin startproject` / `startapp` đè lên; điền nội dung trực tiếp vào các file đã có.
+> **Trạng thái**: giai đoạn 1 (chức năng Nhà tuyển dụng) đã triển khai trong `config`, `common`, `accounts`, `catalog`, `employers`, `jobs`, `applications` — xem [employer-api.md](employer-api.md). Giai đoạn 2 (chức năng Ứng viên: đăng ký, hồ sơ, tải lên CV, ứng tuyển) đã triển khai trong `candidates`, `cvs` và phần `candidate/applications` của `applications` — xem [candidate-api.md](candidate-api.md). Mở rộng: tìm ứng viên công khai CV và ứng viên phù hợp với tin (`talents`), thư mời ứng tuyển (`invitations`) — xem [talent-invitation-api.md](talent-invitation-api.md). AI cho ứng viên (`ai`: chấm điểm CV, gợi ý sửa CV, gợi ý việc làm bằng Gemini) — xem [ai-api.md](ai-api.md); các file còn rỗng trong `ai/` (xếp hạng ứng viên cho NTD, OpenAI, Celery task) thuộc giai đoạn sau. Không chạy `django-admin startproject` / `startapp` đè lên; điền nội dung trực tiếp vào các file đã có.
 >
 > Ngoài các file chuẩn bên dưới, một số app có thêm: `workflow.py` (bảng chuyển trạng thái), `signals.py` (domain event cho module khác lắng nghe), `permissions.py`; `accounts/registry.py` (app theo vai trò đăng ký phần `profile` của `/auth/me/`).
 
@@ -27,9 +27,8 @@ DO-AN-TOT-NGHIEP-PTIT-BE/
 │       ├── jobs/               # Tin tuyển dụng
 │       ├── applications/       # Ứng tuyển (ATS)
 │       ├── favorites/          # Việc làm / công ty ứng viên yêu thích
-│       ├── talents/            # Ứng viên phù hợp với tin tuyển dụng (NTD chủ động tìm ứng viên)
-│       ├── connections/        # Kết bạn giữa nhà tuyển dụng và ứng viên
-│       ├── messaging/          # Nhắn tin 1-1 giữa hai tài khoản đã kết bạn
+│       ├── invitations/        # Thư mời ứng tuyển: NTD mời ứng viên nộp hồ sơ vào tin
+│       ├── talents/            # NTD chủ động tìm ứng viên: kho CV công khai, ứng viên phù hợp với tin
 │       └── ai/                 # AI / LLM
 ├── database/
 │   └── schema.sql
@@ -128,24 +127,20 @@ Tin tuyển dụng (JD), ngành nghề, kỹ năng yêu cầu, địa điểm, m
 
 Ứng viên đánh dấu yêu thích việc làm và công ty (`candidate/favorites/...`). App đứng trên `candidates`, `jobs`, `employers`; các app đó không import ngược lại.
 
-### `talents/` — Ứng viên phù hợp với tin tuyển dụng
+### `talents/` — Tìm ứng viên
 
-Nhà tuyển dụng xem CV của ứng viên phù hợp với một tin của công ty, xếp theo điểm 0-100. Không có model: điểm tính khi gọi API.
+Nhà tuyển dụng chủ động tìm ứng viên. Không có model: điểm tính khi gọi API.
 
-- Nguồn ứng viên: `candidates.selectors.discoverable_candidates(company)` — hồ sơ bật `is_public` hoặc đã ứng tuyển vào công ty; so khớp bằng CV mặc định.
+- Tìm ứng viên (`employer/talents/`): mọi ứng viên công khai CV (`candidates.selectors.public_candidates`), kèm CV chính; tìm theo từ khóa (cả nội dung CV), địa điểm, cấp bậc.
+- Ứng viên phù hợp với một tin (`employer/jobs/{id}/suggested-candidates/`), xếp theo điểm 0-100. Nguồn ứng viên: `candidates.selectors.discoverable_candidates(company)` — công khai CV hoặc đã ứng tuyển vào công ty; so khớp bằng CV mặc định.
 - `matching.py`: chấm điểm bằng quy tắc (kỹ năng + tên gọi khác, bỏ dấu tiếng Việt; kinh nghiệm; cấp bậc; địa điểm), kèm lý do. Module AI sau này có thể thay bằng embedding + LLM, giữ nguyên API.
 
-### `connections/` — Kết bạn
+### `invitations/` — Thư mời ứng tuyển
 
-Nhà tuyển dụng gửi lời mời kết bạn tới ứng viên họ tìm thấy; ứng viên chấp nhận / từ chối. Bị từ chối thì 7 ngày sau mới mời lại được.
+Nhà tuyển dụng gửi thư mời ứng viên nộp hồ sơ vào một tin đang tuyển của công ty (mỗi tin một thư cho mỗi ứng viên, thu hồi được khi chưa phản hồi). Ứng viên xem thư, từ chối, hoặc nộp hồ sơ theo luồng ứng tuyển thường.
 
-- `signals.py`: `connection_requested`, `connection_accepted` (messaging nghe để tạo hội thoại).
-
-### `messaging/` — Tin nhắn
-
-Hội thoại 1-1 (`Conversation`, `Message`), chỉ gửi được khi hai bên là bạn bè. Frontend hỏi định kỳ tin mới (`?after=<id>`); có thể thay bằng WebSocket sau.
-
-- `receivers.py`: khi lời mời được chấp nhận, tạo hội thoại và chuyển lời nhắn kèm lời mời thành tin nhắn đầu tiên.
+- `receivers.py`: nghe `applications.signals.application_submitted` — ứng viên nộp hồ sơ vào tin được mời thì thư chuyển "đã ứng tuyển".
+- Migration `0002_drop_connections_messaging`: xóa bảng của chức năng kết bạn / nhắn tin đã gỡ bỏ.
 
 ### `applications/` — Ứng tuyển / ATS
 
@@ -187,7 +182,7 @@ Chứa toàn bộ logic AI. Các app khác chỉ gọi vào `ai/services/` (ho�
 - `accounts` là nền tảng: mọi app được phép phụ thuộc vào nó.
 - `candidates`, `employers` → `accounts`.
 - `cvs` → `candidates`. `jobs` → `employers`. `applications` → `cvs`, `jobs`.
-- `connections` → `candidates`, `jobs`. `messaging` → `connections`. `talents` → `candidates`, `cvs`, `jobs`, `applications`, `connections`.
+- `invitations` → `candidates`, `jobs`, `applications`. `talents` → `candidates`, `cvs`, `jobs`, `applications`, `invitations`.
 - `ai` được đọc dữ liệu từ `cvs`, `jobs`, `candidates`. Các app nghiệp vụ chỉ gọi `ai` qua `ai/services` hoặc `ai/tasks`.
 - Không import `views` của app khác. Giao tiếp giữa các app qua `services` / `selectors`.
 

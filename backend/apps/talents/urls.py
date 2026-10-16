@@ -1,8 +1,9 @@
 from django.urls import path
 
-from .views import SuggestedCandidatesView, TalentCVFileView
+from .views import SuggestedCandidatesView, TalentCVFileView, TalentPoolView
 
 urlpatterns = [
+    path('employer/talents/', TalentPoolView.as_view(), name='employer-talents'),
     path(
         'employer/jobs/<uuid:job_id>/suggested-candidates/', SuggestedCandidatesView.as_view(),
         name='employer-job-suggested-candidates',

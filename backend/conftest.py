@@ -143,7 +143,7 @@ def make_candidate(db):
 
 @pytest.fixture
 def make_talent(make_candidate):
-    """Ứng viên có CV mặc định đã bóc tách văn bản `cv_text`; mặc định bật "cho phép NTD tìm thấy"."""
+    """Ứng viên có CV mặc định đã bóc tách văn bản `cv_text`; mặc định bật công khai CV."""
 
     def factory(cv_text='', is_public=True, full_name='Nguyễn Văn A', headline='', **profile_fields):
         profile, cv = make_candidate(full_name=full_name, headline=headline)
@@ -153,19 +153,6 @@ def make_talent(make_candidate):
         profile.save()
         cv.refresh_from_db()
         return profile, cv
-
-    return factory
-
-
-@pytest.fixture
-def connect(recruiter):
-    """Tạo quan hệ bạn bè (đã chấp nhận) giữa nhà tuyển dụng và ứng viên qua đúng service của API."""
-    from apps.connections import services as connection_services
-
-    def factory(candidate_profile, by=None, message=''):
-        by = by or recruiter
-        connection = connection_services.send_request(recruiter=by, addressee=candidate_profile.user, message=message)
-        return connection_services.accept_request(connection, by=candidate_profile.user)
 
     return factory
 

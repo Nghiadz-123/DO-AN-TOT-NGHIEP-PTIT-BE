@@ -72,7 +72,7 @@ Giai đoạn 1 (đã triển khai): API dành cho **Nhà tuyển dụng** — xe
 
 Giai đoạn 2 (đã triển khai): API dành cho **Ứng viên** — đăng ký, hồ sơ, **tải lên CV** (PDF/DOCX, bóc tách văn bản), ứng tuyển và theo dõi hồ sơ — xem [docs/candidate-api.md](docs/candidate-api.md).
 
-Mở rộng (đã triển khai): **Ứng viên phù hợp** với tin tuyển dụng, **kết bạn** và **nhắn tin** giữa nhà tuyển dụng - ứng viên — xem [docs/talent-chat-api.md](docs/talent-chat-api.md).
+Mở rộng (đã triển khai): ứng viên **công khai CV**, nhà tuyển dụng **tìm ứng viên** / xem **ứng viên phù hợp** với tin tuyển dụng và gửi **thư mời ứng tuyển** — xem [docs/talent-invitation-api.md](docs/talent-invitation-api.md).
 
 AI cho ứng viên (đã triển khai, Gemini): **chấm điểm CV**, **gợi ý sửa CV**, **gợi ý việc làm** — xem [docs/ai-api.md](docs/ai-api.md). Cần điền `GEMINI_API_KEY` (cùng các biến `GEMINI_*`) vào `backend/.env`.
 
@@ -93,9 +93,8 @@ DO-AN-TOT-NGHIEP-PTIT-BE/
 │       ├── jobs/        # Tin tuyển dụng
 │       ├── applications/# Ứng tuyển, pipeline ATS
 │       ├── favorites/   # Việc làm / công ty yêu thích
-│       ├── talents/     # Ứng viên phù hợp với tin tuyển dụng
-│       ├── connections/ # Kết bạn nhà tuyển dụng - ứng viên
-│       ├── messaging/   # Nhắn tin 1-1
+│       ├── invitations/ # Thư mời ứng tuyển (nhà tuyển dụng mời ứng viên)
+│       ├── talents/     # Tìm ứng viên công khai CV, ứng viên phù hợp với tin tuyển dụng
 │       └── ai/          # LLM, prompts, vector store, 4 chức năng AI
 ├── database/
 ├── docs/

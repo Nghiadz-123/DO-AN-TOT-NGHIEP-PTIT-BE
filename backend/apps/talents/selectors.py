@@ -1,19 +1,29 @@
-"""Gợi ý ứng viên phù hợp với một tin tuyển dụng (nhà tuyển dụng chủ động tìm ứng viên).
+"""Nhà tuyển dụng chủ động tìm ứng viên.
 
-Nguồn ứng viên: candidates.selectors.discoverable_candidates (hồ sơ công khai hoặc đã ứng tuyển vào công ty),
-so khớp bằng CV mặc định của ứng viên. Điểm tính khi gọi API (matching.py, không lưu DB): số ứng viên ở
-quy mô đồ án nhỏ; khi có module AI có thể lưu kết quả vào bảng match_results và đọc từ đó.
+- Tìm ứng viên (talent_pool): mọi ứng viên công khai CV, không cần tin tuyển dụng.
+- Ứng viên phù hợp với một tin (suggested_candidates): nguồn là candidates.selectors.discoverable_candidates
+  (công khai CV hoặc đã ứng tuyển vào công ty), so khớp bằng CV mặc định của ứng viên. Điểm tính khi gọi API
+  (matching.py, không lưu DB): số ứng viên ở quy mô đồ án nhỏ; khi có module AI có thể lưu kết quả vào bảng
+  match_results và đọc từ đó.
 """
 from dataclasses import dataclass
 
-from django.db.models import Prefetch, Q
+from django.db.models import Exists, OuterRef, Prefetch, Q, Subquery
 
 from apps.applications.models import Application
 from apps.candidates import selectors as candidate_selectors
 from apps.cvs.models import CV
 from apps.jobs.models import Job, JobSkill
+from common.utils import strip_accents
 
 from . import matching
+
+
+@dataclass
+class TalentProfile:
+    candidate: object  # CandidateProfile
+    cv: CV  # CV chính ứng viên công khai
+    invitation: object = None  # thư mời gần nhất của công ty đang xem (gắn ở view)
 
 
 @dataclass
@@ -22,7 +32,40 @@ class TalentMatch:
     cv: CV
     match: matching.MatchResult
     application_id: object = None  # hồ sơ ứng viên đã nộp vào chính tin này (nếu có)
-    connection: object = None  # Connection giữa nhà tuyển dụng đang xem và ứng viên (gắn ở view)
+    invitation: object = None  # thư mời của công ty cho chính tin này (gắn ở view)
+
+
+def talent_pool(*, search: str = '', location_id=None, level: str = ''):
+    """Ứng viên công khai CV, kèm CV chính (`default_cvs`), CV cập nhật gần nhất trước.
+
+    `search` tìm trong tên, tiêu đề hồ sơ, vị trí mong muốn, giới thiệu và nội dung CV. CV PDF font chuẩn mất dấu
+    tiếng Việt nên nội dung CV được so thêm với từ khóa đã bỏ dấu ("kế toán" vẫn tìm thấy "Ke toan").
+    """
+    default_cv = CV.objects.filter(candidate=OuterRef('pk'), is_default=True)
+    candidates = (
+        candidate_selectors.public_candidates()
+        .filter(Exists(default_cv))
+        .select_related('user', 'location')
+        .prefetch_related(
+            Prefetch(
+                'cvs', queryset=CV.objects.filter(is_default=True).defer('raw_text', 'parsed_data'), to_attr='default_cvs'
+            )
+        )
+        .annotate(cv_updated_at=Subquery(default_cv.values('updated_at')[:1]))
+        .order_by('-cv_updated_at', 'user__full_name')
+    )
+    if location_id:
+        candidates = candidates.filter(location_id=location_id)
+    if level:
+        candidates = candidates.filter(current_level=level)
+    if search:
+        cv_text = Q(raw_text__icontains=search) | Q(raw_text__icontains=strip_accents(search))
+        candidates = candidates.filter(
+            Q(user__full_name__icontains=search) | Q(headline__icontains=search)
+            | Q(desired_position__icontains=search) | Q(summary__icontains=search)
+            | Q(Exists(default_cv.filter(cv_text)))
+        )
+    return candidates
 
 
 def get_company_job(company, job_id) -> Job | None:

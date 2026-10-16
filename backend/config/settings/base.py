@@ -36,8 +36,7 @@ INSTALLED_APPS = [
     'apps.jobs',
     'apps.applications',
     'apps.favorites',
-    'apps.connections',
-    'apps.messaging',
+    'apps.invitations',
     'apps.talents',
     'apps.ai',
 ]
@@ -128,8 +127,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'auth': '20/min',
         'cv_upload': '30/hour',
-        'connection_request': '60/hour',  # nhà tuyển dụng gửi lời mời kết bạn
-        'chat_message': '30/min',  # gửi tin nhắn
+        'invitation': '60/hour',  # nhà tuyển dụng gửi thư mời ứng tuyển
         'ai': '60/hour',  # ứng viên gọi chức năng AI (mỗi lần gọi tốn quota Gemini)
     },
     'COERCE_DECIMAL_TO_STRING': False,
@@ -154,7 +152,7 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'Smart ATS API',
     'DESCRIPTION': 'API nền tảng tuyển dụng (ATS). Giai đoạn 1: chức năng dành cho Nhà tuyển dụng. '
     'Giai đoạn 2: chức năng dành cho Ứng viên (hồ sơ, tải lên CV, ứng tuyển). '
-    'Mở rộng: ứng viên phù hợp với tin tuyển dụng, kết bạn và nhắn tin giữa nhà tuyển dụng - ứng viên. '
+    'Mở rộng: nhà tuyển dụng tìm ứng viên công khai CV, ứng viên phù hợp với tin tuyển dụng, thư mời ứng tuyển. '
     'AI cho ứng viên (Gemini): chấm điểm CV, gợi ý sửa CV, gợi ý việc làm.',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
@@ -170,7 +168,7 @@ SPECTACULAR_SETTINGS = {
         'ApplicationTargetStatusEnum': ['screening', 'interview', 'offer', 'hired', 'rejected'],
         'RecruiterStatusEnum': 'apps.employers.models.RecruiterStatus',
         'CVParseStatusEnum': 'apps.cvs.models.CVParseStatus',
-        'ConnectionStatusEnum': 'apps.connections.models.ConnectionStatus',
+        'InvitationStatusEnum': 'apps.invitations.models.InvitationStatus',
     },
 }
 

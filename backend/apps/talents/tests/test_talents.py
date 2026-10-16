@@ -1,8 +1,12 @@
+from datetime import timedelta
+
 import pytest
+from django.utils import timezone
 
 from apps.applications import services as application_services
 from apps.catalog.models import Location
-from apps.connections import services as connection_services
+from apps.cvs.models import CV
+from apps.invitations import services as invitation_services
 from conftest import client_for
 
 pytestmark = pytest.mark.django_db
@@ -10,6 +14,10 @@ pytestmark = pytest.mark.django_db
 
 def url(job, query=''):
     return f'/api/v1/employer/jobs/{job.id}/suggested-candidates/{query}'
+
+
+def pool_url(query=''):
+    return f'/api/v1/employer/talents/{query}'
 
 
 def cv_url(profile):
@@ -46,9 +54,9 @@ def test_suggestions_are_ranked_and_explained(employer_client, sales_job, make_t
     assert best['matched_skills'] == ['Bán hàng', 'Đàm phán', 'Excel']
     assert best['missing_skills'] == []
     assert 'Cùng địa điểm Hà Nội' in best['reasons']
-    assert best['application_id'] is None and best['connection'] is None
+    assert best['application_id'] is None and best['invitation'] is None
     assert best['cv']['parse_status'] == 'completed'
-    assert 'email' not in best['candidate'] and best['candidate']['user_id']
+    assert 'email' not in best['candidate']
     # Bình: 1/3 kỹ năng (20) + kinh nghiệm (20) + chưa khai cấp bậc, địa điểm (5 + 5)
     assert weak['score'] == 50
     assert weak['missing_skills'] == ['Bán hàng', 'Đàm phán']
@@ -102,14 +110,73 @@ def test_candidate_without_default_cv_is_skipped(employer_client, sales_job, mak
     assert employer_client.get(url(sales_job)).data['count'] == 0
 
 
-def test_includes_connection_status(employer_client, recruiter, sales_job, make_talent):
+def test_includes_invitation_of_the_job(employer_client, recruiter, sales_job, make_job, make_talent):
     profile, _ = make_talent('ban hang')
-    connection_services.send_request(recruiter=recruiter, addressee=profile.user)
+    invitation_services.send_invitation(recruiter=recruiter, candidate=profile, job=make_job(), message='Mời')
 
+    assert employer_client.get(url(sales_job)).data['results'][0]['invitation'] is None  # thư của tin khác
+
+    invitation = invitation_services.send_invitation(recruiter=recruiter, candidate=profile, job=sales_job, message='Mời')
     item = employer_client.get(url(sales_job)).data['results'][0]
 
-    assert item['connection']['status'] == 'pending'
-    assert item['connection']['direction'] == 'sent'
+    assert item['invitation']['id'] == str(invitation.id)
+    assert item['invitation']['status'] == 'pending'
+    assert item['invitation']['job']['title'] == 'Nhân viên kinh doanh'
+
+
+def test_talent_pool_lists_only_public_cvs(employer_client, sales_job, make_talent):
+    make_talent('ban hang', full_name='Công khai')
+    applicant, applicant_cv = make_talent('ban hang', is_public=False, full_name='Đã ứng tuyển')
+    application_services.submit_application(candidate=applicant, job=sales_job, cv=applicant_cv)
+    _, cv = make_talent('ban hang', full_name='Không có CV chính')
+    CV.objects.filter(pk=cv.pk).update(is_default=False)
+    inactive, _ = make_talent('ban hang', full_name='Đã khóa')
+    inactive.user.is_active = False
+    inactive.user.save()
+
+    res = employer_client.get(pool_url())
+
+    assert res.status_code == 200
+    assert names(res) == ['Công khai']
+    item = res.data['results'][0]
+    assert item['cv']['title'] == 'CV' and item['invitation'] is None
+    assert 'email' not in item['candidate']
+
+
+def test_talent_pool_search_and_filters(employer_client, make_talent):
+    hanoi = Location.objects.get(slug='ha-noi')
+    make_talent('Ke toan tong hop, MISA', full_name='Lê Cúc', headline='Kế toán', current_level='staff', location=hanoi)
+    make_talent('Ban hang B2B', full_name='Trần An', headline='Nhân viên kinh doanh', current_level='manager')
+
+    # Nội dung CV PDF mất dấu tiếng Việt vẫn tìm được bằng từ khóa có dấu
+    assert names(employer_client.get(pool_url('?q=tổng hợp'))) == ['Lê Cúc']
+    assert names(employer_client.get(pool_url('?q=kinh doanh'))) == ['Trần An']
+    assert names(employer_client.get(pool_url(f'?location_id={hanoi.id}'))) == ['Lê Cúc']
+    assert names(employer_client.get(pool_url('?level=manager'))) == ['Trần An']
+    assert employer_client.get(pool_url('?level=boss')).status_code == 400
+
+
+def test_talent_pool_orders_by_cv_update_and_shows_latest_invitation(employer_client, recruiter, other_recruiter,
+                                                                    make_job, make_talent):
+    old, old_cv = make_talent('ban hang', full_name='Cũ')
+    make_talent('ban hang', full_name='Mới')
+    CV.objects.filter(pk=old_cv.pk).update(updated_at=timezone.now() - timedelta(days=3))
+    invitation_services.send_invitation(recruiter=recruiter, candidate=old, job=make_job(title='Kế toán'), message='Mời')
+    latest = invitation_services.send_invitation(
+        recruiter=recruiter, candidate=old, job=make_job(title='Thủ kho'), message='Mời'
+    )
+
+    res = employer_client.get(pool_url())
+
+    assert names(res) == ['Mới', 'Cũ']
+    assert res.data['results'][1]['invitation']['id'] == str(latest.id)
+    assert res.data['results'][1]['invitation']['job']['title'] == 'Thủ kho'
+    # Thư của công ty khác không hiện
+    assert client_for(other_recruiter.user).get(pool_url()).data['results'][1]['invitation'] is None
+
+
+def test_talent_pool_is_for_employers(candidate_client):
+    assert candidate_client.get(pool_url()).status_code == 403
 
 
 def test_scoped_to_company_and_employer_role(employer_client, candidate_client, make_job, other_recruiter):
