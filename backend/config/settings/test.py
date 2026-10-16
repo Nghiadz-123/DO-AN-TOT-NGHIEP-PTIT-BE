@@ -16,3 +16,5 @@ PRIVATE_MEDIA_ROOT = _tmp / 'private_media'
 REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {key: None for key in REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']}
 EMPLOYER_REQUIRE_VERIFIED_COMPANY = False
 CANDIDATE_MAX_CVS = 10
+# Test không bao giờ gọi Gemini thật (kể cả khi .env có key): test AI thay LLM bằng provider giả
+GEMINI_API_KEY = ''

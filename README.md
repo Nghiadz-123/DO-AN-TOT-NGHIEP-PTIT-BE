@@ -74,6 +74,8 @@ Giai đoạn 2 (đã triển khai): API dành cho **Ứng viên** — đăng ký
 
 Mở rộng (đã triển khai): **Ứng viên phù hợp** với tin tuyển dụng, **kết bạn** và **nhắn tin** giữa nhà tuyển dụng - ứng viên — xem [docs/talent-chat-api.md](docs/talent-chat-api.md).
 
+AI cho ứng viên (đã triển khai, Gemini): **chấm điểm CV**, **gợi ý sửa CV**, **gợi ý việc làm** — xem [docs/ai-api.md](docs/ai-api.md). Cần điền `GEMINI_API_KEY` (cùng các biến `GEMINI_*`) vào `backend/.env`.
+
 ---
 
 ## 📂 Cấu trúc thư mục

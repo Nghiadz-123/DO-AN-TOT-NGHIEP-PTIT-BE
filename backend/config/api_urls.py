@@ -1,7 +1,7 @@
 """Gom URL của các app vào /api/v1/.
 
 Mỗi app tự khai báo đường dẫn đầy đủ của mình trong urls.py (vd. 'employer/jobs/', 'candidate/cvs/').
-Thêm module mới (vd. apps.ai ở giai đoạn sau) chỉ cần thêm một dòng include.
+Thêm module mới chỉ cần thêm một dòng include.
 """
 from django.urls import include, path
 
@@ -17,4 +17,5 @@ urlpatterns = [
     path('', include('apps.talents.urls')),       # employer/jobs/{id}/suggested-candidates/, employer/talents/...
     path('', include('apps.connections.urls')),   # connections/... (kết bạn)
     path('', include('apps.messaging.urls')),     # conversations/... (tin nhắn)
+    path('', include('apps.ai.urls')),            # candidate/cv-analyses/, candidate/cvs/{id}/analysis|recommended-jobs/...
 ]
