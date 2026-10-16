@@ -27,7 +27,7 @@ INSTALLED_APPS = [
     'django_filters',
     'corsheaders',
     'drf_spectacular',
-    # Module nghiệp vụ (theo thứ tự phụ thuộc). Giai đoạn AI sẽ thêm 'apps.ai'.
+    # Module nghiệp vụ (theo thứ tự phụ thuộc)
     'apps.accounts',
     'apps.catalog',
     'apps.employers',
@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'apps.connections',
     'apps.messaging',
     'apps.talents',
+    'apps.ai',
 ]
 
 MIDDLEWARE = [
@@ -129,6 +130,7 @@ REST_FRAMEWORK = {
         'cv_upload': '30/hour',
         'connection_request': '60/hour',  # nhà tuyển dụng gửi lời mời kết bạn
         'chat_message': '30/min',  # gửi tin nhắn
+        'ai': '60/hour',  # ứng viên gọi chức năng AI (mỗi lần gọi tốn quota Gemini)
     },
     'COERCE_DECIMAL_TO_STRING': False,
 }
@@ -152,7 +154,8 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'Smart ATS API',
     'DESCRIPTION': 'API nền tảng tuyển dụng (ATS). Giai đoạn 1: chức năng dành cho Nhà tuyển dụng. '
     'Giai đoạn 2: chức năng dành cho Ứng viên (hồ sơ, tải lên CV, ứng tuyển). '
-    'Mở rộng: ứng viên phù hợp với tin tuyển dụng, kết bạn và nhắn tin giữa nhà tuyển dụng - ứng viên.',
+    'Mở rộng: ứng viên phù hợp với tin tuyển dụng, kết bạn và nhắn tin giữa nhà tuyển dụng - ứng viên. '
+    'AI cho ứng viên (Gemini): chấm điểm CV, gợi ý sửa CV, gợi ý việc làm.',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
@@ -176,6 +179,8 @@ LOGGING = {
     'disable_existing_loggers': False,
     'handlers': {'console': {'class': 'logging.StreamHandler'}},
     'root': {'handlers': ['console'], 'level': 'INFO'},
+    # Thư viện HTTP của google-genai ghi log mọi request ở mức INFO: chỉ giữ cảnh báo / lỗi
+    'loggers': {'httpx': {'level': 'WARNING'}},
 }
 
 # --- Nghiệp vụ ---
@@ -185,3 +190,13 @@ COMPANY_LOGO_MAX_SIZE = 2 * 1024 * 1024
 # CV ứng viên: PDF/DOCX tối đa 5 MB (UC-03); số CV tối đa một ứng viên được lưu (không tính CV đã xóa)
 CV_MAX_SIZE = 5 * 1024 * 1024
 CANDIDATE_MAX_CVS = env.int('CANDIDATE_MAX_CVS', default=10)
+
+# --- AI (apps.ai): cùng tên biến và model với prototype TestAI/.env ---
+LLM_PROVIDER = env('LLM_PROVIDER', default='gemini')
+GEMINI_API_KEY = env('GEMINI_API_KEY', default='')
+# Nhiều model cách nhau dấu phẩy: model đầu quá tải / hết quota thì tự chuyển sang model sau
+GEMINI_CHAT_MODELS = env.list(
+    'GEMINI_CHAT_MODEL', default=['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.6-flash']
+)
+GEMINI_EMBED_MODEL = env('GEMINI_EMBED_MODEL', default='gemini-embedding-001')
+AI_REQUEST_TIMEOUT = env.int('AI_REQUEST_TIMEOUT', default=60)  # giây, cho mỗi lần gọi Gemini

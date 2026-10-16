@@ -2,7 +2,7 @@
 
 Stack: Django + Django REST Framework + PostgreSQL, Celery + Redis (xử lý bất đồng bộ các tác vụ AI), ChromaDB (vector store), LLM API (OpenAI / Gemini).
 
-> **Trạng thái**: giai đoạn 1 (chức năng Nhà tuyển dụng) đã triển khai trong `config`, `common`, `accounts`, `catalog`, `employers`, `jobs`, `applications` — xem [employer-api.md](employer-api.md). Giai đoạn 2 (chức năng Ứng viên: đăng ký, hồ sơ, tải lên CV, ứng tuyển) đã triển khai trong `candidates`, `cvs` và phần `candidate/applications` của `applications` — xem [candidate-api.md](candidate-api.md). Mở rộng: ứng viên phù hợp với tin (`talents`), kết bạn (`connections`) và nhắn tin (`messaging`) — xem [talent-chat-api.md](talent-chat-api.md). Các file còn rỗng (`ai/`) thuộc giai đoạn sau. Không chạy `django-admin startproject` / `startapp` đè lên; điền nội dung trực tiếp vào các file đã có.
+> **Trạng thái**: giai đoạn 1 (chức năng Nhà tuyển dụng) đã triển khai trong `config`, `common`, `accounts`, `catalog`, `employers`, `jobs`, `applications` — xem [employer-api.md](employer-api.md). Giai đoạn 2 (chức năng Ứng viên: đăng ký, hồ sơ, tải lên CV, ứng tuyển) đã triển khai trong `candidates`, `cvs` và phần `candidate/applications` của `applications` — xem [candidate-api.md](candidate-api.md). Mở rộng: ứng viên phù hợp với tin (`talents`), kết bạn (`connections`) và nhắn tin (`messaging`) — xem [talent-chat-api.md](talent-chat-api.md). AI cho ứng viên (`ai`: chấm điểm CV, gợi ý sửa CV, gợi ý việc làm bằng Gemini) — xem [ai-api.md](ai-api.md); các file còn rỗng trong `ai/` (xếp hạng ứng viên cho NTD, OpenAI, Celery task) thuộc giai đoạn sau. Không chạy `django-admin startproject` / `startapp` đè lên; điền nội dung trực tiếp vào các file đã có.
 >
 > Ngoài các file chuẩn bên dưới, một số app có thêm: `workflow.py` (bảng chuyển trạng thái), `signals.py` (domain event cho module khác lắng nghe), `permissions.py`; `accounts/registry.py` (app theo vai trò đăng ký phần `profile` của `/auth/me/`).
 
@@ -157,6 +157,8 @@ Hội thoại 1-1 (`Conversation`, `Message`), chỉ gửi được khi hai bên
 ### `ai/` — AI / LLM
 
 Chứa toàn bộ logic AI. Các app khác chỉ gọi vào `ai/services/` (hoặc `ai/tasks.py`), không gọi LLM trực tiếp.
+
+> Đã triển khai phần ứng viên theo prototype `TestAI` (xem [ai-api.md](ai-api.md)): provider Gemini, prompt, `services/cv_analysis.py`, `services/cv_suggestion.py`, `services/job_recommendation.py`, `nlp/`, `vectorstore/` (vector lưu trong PostgreSQL, cosine bằng Python — chưa dùng ChromaDB), `receivers.py` (xóa dữ liệu AI khi CV bị xóa). Còn rỗng: `services/candidate_matching.py`, `prompts/candidate_matching.py`, `llm/providers/openai_provider.py`, `tasks.py` (gọi AI đang chạy đồng bộ trong request).
 
 | Thành phần | Trách nhiệm |
 |---|---|
