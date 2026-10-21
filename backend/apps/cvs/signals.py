@@ -11,3 +11,4 @@ from django.dispatch import Signal
 cv_uploaded = Signal()  # kwargs: cv
 cv_parsed = Signal()    # kwargs: cv (parse_status=completed, đã có raw_text, parsed_data)
 cv_deleted = Signal()   # kwargs: cv
+cv_replaced = Signal()  # kwargs: cv (file CV bị thay tại chỗ nên kết quả AI cũ không còn đúng)

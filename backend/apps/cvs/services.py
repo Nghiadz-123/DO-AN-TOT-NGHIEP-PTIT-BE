@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
 
@@ -11,8 +12,8 @@ from apps.candidates.models import CandidateProfile
 from common.exceptions import BusinessError
 from common.utils import file_sha256, send_on_commit
 
-from . import parsers, signals
-from .models import CV, CVParseStatus
+from . import builder_docx, parsers, signals
+from .models import CV, CVBuilderDocument, CVMimeType, CVParseStatus
 from .tasks import enqueue_parse
 
 logger = logging.getLogger(__name__)
@@ -73,6 +74,69 @@ def upload_cv(
     enqueue_parse(cv)
     send_on_commit(signals.cv_uploaded, sender=CV, cv=cv)
     return cv
+
+
+@transaction.atomic
+def save_builder_cv(*, candidate, content: dict) -> CVBuilderDocument:
+    """Lưu nội dung CV tạo trên web và dựng thành CV thật (file DOCX) trong danh sách "CV của tôi".
+
+    Nhờ đó CV tự tạo dùng được như CV tải lên: ứng tuyển, AI chấm điểm / gợi ý sửa / gợi ý việc làm.
+    - Chưa có CV liên kết (hoặc đã bị xóa): tạo CV mới.
+    - CV liên kết chưa dùng ứng tuyển: thay file tại chỗ rồi bóc tách lại.
+    - CV liên kết đã dùng ứng tuyển: giữ nguyên bản đã nộp, tạo CV mới cho bản chỉnh sửa.
+    - Nội dung không đổi (cùng mã băm file): không dựng lại, không tốn lượt bóc tách / AI.
+    """
+    if not builder_docx.has_content(content):
+        raise BusinessError(
+            'Hãy điền họ tên và ít nhất một mục (giới thiệu, kinh nghiệm, học vấn, kỹ năng hoặc dự án) trước khi lưu.',
+            code='builder_cv_empty',
+        )
+    _lock_candidate(candidate.pk)
+    document = CVBuilderDocument.objects.filter(candidate=candidate).first() or CVBuilderDocument(candidate=candidate)
+    document.content = content
+
+    data = builder_docx.render_docx(content)
+    docx_file = ContentFile(data, name=f'{_title_filename(builder_docx.cv_title(content))}.docx')
+    title = builder_docx.cv_title(content)
+    cv = CV.objects.filter(pk=document.cv_id).first() if document.cv_id else None
+
+    if cv is not None and cv.file_hash == file_sha256(docx_file):
+        pass  # nội dung CV không đổi
+    elif cv is not None and not cv.applications.exists():
+        _replace_cv_file(cv, docx_file, title)
+    else:
+        cv = upload_cv(candidate=candidate, file=docx_file, mime_type=CVMimeType.DOCX, title=title)
+    document.cv = cv
+    document.save()
+    return document
+
+
+def _replace_cv_file(cv: CV, file, title: str) -> None:
+    """Thay file của CV chưa dùng ứng tuyển: bản ghi giữ nguyên (id, CV mặc định), kết quả bóc tách / AI cũ bị bỏ."""
+    file_hash = file_sha256(file)
+    duplicate = CV.objects.filter(candidate_id=cv.candidate_id, file_hash=file_hash).exclude(pk=cv.pk).first()
+    if duplicate is not None:
+        raise BusinessError(
+            f'Nội dung này trùng với CV "{duplicate.title}" bạn đã có.', code='duplicate_cv', status_code=409
+        )
+    old_storage, old_name = cv.file.storage, cv.file.name
+    cv.file.save(file.name, file, save=False)
+    cv.title = title
+    cv.original_filename = _clean_filename(file.name)
+    cv.mime_type = CVMimeType.DOCX
+    cv.file_size = file.size
+    cv.file_hash = file_hash
+    cv.language = ''
+    cv.parse_status = CVParseStatus.PENDING
+    cv.parse_error = ''
+    cv.raw_text = ''
+    cv.parsed_data = None
+    cv.parsed_at = None
+    cv.save()
+    if old_name and old_name != cv.file.name:
+        transaction.on_commit(lambda: old_storage.delete(old_name), robust=True)
+    enqueue_parse(cv)
+    send_on_commit(signals.cv_replaced, sender=CV, cv=cv)
 
 
 def update_cv(cv: CV, *, title: str) -> CV:
@@ -194,6 +258,10 @@ def _clean_title(title: str) -> str:
 
 def _title_from_filename(filename: str) -> str:
     return _clean_title(Path(filename).stem.replace('_', ' ')) or 'CV'
+
+
+def _title_filename(title: str) -> str:
+    return f'CV {re.sub(r"[\\/:*?\"<>|]", "", title).strip() or "của tôi"}'[:200]
 
 
 def _clean_filename(name: str) -> str:

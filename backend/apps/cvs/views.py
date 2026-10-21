@@ -116,16 +116,26 @@ class CandidateCVViewSet(CandidateAccessMixin, viewsets.ModelViewSet):
 
 @extend_schema(tags=TAG, summary='Lấy hoặc lưu nội dung CV tự tạo')
 class CandidateCVBuilderView(CandidateAccessMixin, APIView):
-    """Lưu một bản CV tự tạo cho ứng viên hiện tại, không tạo file upload giả."""
+    """CV tự tạo của ứng viên hiện tại. Lưu = dựng file DOCX và thêm vào danh sách "CV của tôi" (có thể ứng tuyển, AI phân tích)."""
 
+    @extend_schema(summary='Nội dung CV tự tạo đã lưu và CV tương ứng (cv = null nếu chưa lưu)')
     def get(self, request):
         document = CVBuilderDocument.objects.filter(candidate=self.candidate).first()
-        return Response({'content': document.content if document else None})
+        return Response(self._payload(document))
 
+    @extend_schema(summary='Lưu nội dung CV và dựng thành CV thật', request=CVBuilderDocumentSerializer)
     def put(self, request):
         serializer = CVBuilderDocumentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        document, _ = CVBuilderDocument.objects.update_or_create(
-            candidate=self.candidate, defaults={'content': serializer.validated_data['content']}
-        )
-        return Response({'content': document.content, 'updated_at': document.updated_at})
+        document = services.save_builder_cv(candidate=self.candidate, content=serializer.validated_data['content'])
+        return Response(self._payload(document))
+
+    def _payload(self, document):
+        if document is None:
+            return {'content': None, 'updated_at': None, 'cv': None}
+        cv = selectors.candidate_cvs(self.candidate).filter(pk=document.cv_id).first() if document.cv_id else None
+        return {
+            'content': document.content,
+            'updated_at': document.updated_at,
+            'cv': CVDetailSerializer(cv, context={'request': self.request}).data if cv else None,
+        }

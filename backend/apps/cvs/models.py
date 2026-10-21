@@ -73,13 +73,17 @@ class CV(UUIDModel, TimeStampedModel, SoftDeleteModel):
 
 
 class CVBuilderDocument(UUIDModel, TimeStampedModel):
-    """Nội dung CV được tạo từ trình dựng CV của ứng viên."""
+    """Nội dung CV tạo từ trình dựng CV; mỗi lần lưu dựng lại file CV tương ứng (services.save_builder_cv)."""
 
     candidate = models.OneToOneField(
         'candidates.CandidateProfile', on_delete=models.CASCADE, related_name='cv_builder_document',
         verbose_name='ứng viên',
     )
     content = models.JSONField('nội dung CV', default=dict)
+    # CV thật (file DOCX dựng từ content) dùng để ứng tuyển, chấm điểm AI, gợi ý việc làm
+    cv = models.OneToOneField(
+        CV, on_delete=models.SET_NULL, null=True, blank=True, related_name='builder_document', verbose_name='CV'
+    )
 
     class Meta:
         db_table = 'cv_builder_documents'
