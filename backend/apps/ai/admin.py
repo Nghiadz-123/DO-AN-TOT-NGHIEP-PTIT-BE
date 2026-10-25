@@ -8,7 +8,7 @@ class CVAnalysisAdmin(admin.ModelAdmin):
     list_display = ['cv', 'score_total', 'scored_at', 'suggested_at', 'updated_at']
     list_select_related = ['cv']
     search_fields = ['cv__title', 'cv__candidate__user__email']
-    raw_id_fields = ['cv', 'target_job']
+    raw_id_fields = ['cv']
     readonly_fields = ['created_at', 'updated_at']
 
 

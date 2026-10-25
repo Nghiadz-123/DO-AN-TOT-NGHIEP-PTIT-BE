@@ -24,13 +24,10 @@ class CVAnalysis(UUIDModel, TimeStampedModel):
     strengths = models.JSONField('điểm mạnh', default=list, blank=True)
     weaknesses = models.JSONField('điểm cần cải thiện', default=list, blank=True)
     scored_at = models.DateTimeField('chấm điểm lúc', null=True, blank=True)
-    # Gợi ý sửa CV theo tin mục tiêu (nếu có) + các tin đang tuyển gần CV nhất
+    # Gợi ý sửa CV theo các tin đang tuyển gần CV nhất
     suggestions = models.JSONField('gợi ý sửa CV', default=list, blank=True)
     missing_keywords = models.JSONField('từ khóa nên bổ sung', default=list, blank=True)
     reference_jobs = models.JSONField('tin tham chiếu', default=list, blank=True)
-    target_job = models.ForeignKey(
-        'jobs.Job', on_delete=models.SET_NULL, null=True, blank=True, related_name='+', verbose_name='tin mục tiêu'
-    )
     suggested_at = models.DateTimeField('gợi ý lúc', null=True, blank=True)
 
     class Meta:

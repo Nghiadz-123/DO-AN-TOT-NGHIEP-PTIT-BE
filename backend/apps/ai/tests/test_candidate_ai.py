@@ -257,32 +257,29 @@ def test_evaluate_job_with_ai_and_reuse_result(llm, talent, jobs):
 
 
 # ------------------------------------------------------------------------------------------ gợi ý sửa CV
-def test_suggestions_use_target_job_and_nearest_jobs(llm, talent, jobs):
+def test_suggestions_use_recommended_jobs(llm, talent, jobs):
     client, cv = talent
-    target = jobs['accounting']
 
-    res = client.post(suggest_url(cv), {'job_id': str(target.id)}, format='json')
+    res = client.post(suggest_url(cv))
 
     assert res.status_code == 200
     data = res.data['suggestions']
     references = data['reference_jobs']
-    assert {key: references[0][key] for key in ('id', 'title', 'company', 'is_target')} == {
-        'id': str(target.id), 'title': 'Kế toán tổng hợp', 'company': 'ACME', 'is_target': True,
-    }
-    # Tin mục tiêu + các việc làm được gợi ý (cùng điểm và thứ tự với trang Việc làm phù hợp)
+    # Các việc làm được gợi ý (cùng điểm và thứ tự với trang Việc làm phù hợp)
     recommended = client.get(jobs_url(cv)).data
-    others = [item for item in recommended if item['job']['id'] != str(target.id)]
-    assert [(r['id'], r['score']) for r in references[1:]] == [(i['job']['id'], i['score']) for i in others]
-    assert references[1]['title'] == 'Nhân viên bán hàng'
-    assert data['target_job_id'] == str(target.id)
+    assert [(r['id'], r['score']) for r in references] == [(i['job']['id'], i['score']) for i in recommended]
+    by_id = {r['id']: r for r in references}
+    assert {key: by_id[str(jobs['accounting'].id)][key] for key in ('title', 'company')} == {
+        'title': 'Kế toán tổng hợp', 'company': 'ACME',
+    }
     # Gợi ý ưu tiên cao đứng trước; số thứ tự JD (#1, #2) đổi thành id tin, số không có trong prompt bị bỏ
     high, medium = data['items']
     assert high['priority'] == 'high' and high['job_ids'] == [references[1]['id']]
-    assert medium['job_ids'] == [str(target.id)]
+    assert medium['job_ids'] == [references[0]['id']]
     assert data['missing_keywords'] == ['Kế toán thuế']
 
     prompt = next(user for system, user in llm.prompts if system == SUGGEST_CV_SYSTEM)
-    assert 'JD #1 (JD MỤC TIÊU do ứng viên chọn)' in prompt and 'Kế toán tổng hợp' in prompt
+    assert 'JD #1:' in prompt and 'Kế toán tổng hợp' in prompt
     # Mỗi tin kèm điểm phù hợp và kỹ năng CV đã có / còn thiếu; tổng hợp kỹ năng còn thiếu của các tin phù hợp
     assert '"match_score"' in prompt and '"cv_missing_skills": ["Đàm phán"]' in prompt
     assert 'KỸ NĂNG CV CÒN THIẾU LẶP LẠI NHIỀU NHẤT' in prompt and 'Đàm phán (1 JD)' in prompt
@@ -303,7 +300,7 @@ def test_suggestions_send_the_top_recommended_jobs(llm, talent, make_job):
     assert 'JD #20:' in prompt and 'JD #21:' not in prompt and 'MỤC TIÊU' not in prompt
 
 
-def test_suggestions_without_target_job(llm, talent):
+def test_suggestions_without_open_jobs(llm, talent):
     client, cv = talent  # chưa có tin nào: AI gợi ý theo chất lượng CV nói chung
 
     res = client.post(suggest_url(cv), {}, format='json')
@@ -312,14 +309,6 @@ def test_suggestions_without_target_job(llm, talent):
     assert res.data['suggestions']['reference_jobs'] == []
     assert all(item['job_ids'] == [] for item in res.data['suggestions']['items'])
     assert 'CÁC JD THAM CHIẾU' not in llm.prompts[-1][1]
-
-
-def test_suggestion_target_job_must_be_visible(llm, talent, jobs):
-    client, cv = talent
-
-    res = client.post(suggest_url(cv), {'job_id': str(jobs['draft'].id)}, format='json')
-
-    assert res.status_code == 404
 
 
 # ------------------------------------------------------------------------------------------ xóa CV

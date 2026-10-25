@@ -41,14 +41,12 @@ class ReferenceJobSerializer(serializers.Serializer):
     score = serializers.IntegerField(
         required=False, allow_null=True, help_text='Điểm phù hợp với CV lúc gợi ý (như trang Việc làm phù hợp)'
     )
-    is_target = serializers.BooleanField(help_text='Tin mục tiêu ứng viên chọn')
 
 
 class CVSuggestionsSerializer(serializers.Serializer):
     items = CVSuggestionItemSerializer(many=True)
     missing_keywords = serializers.ListField(child=serializers.CharField())
     reference_jobs = ReferenceJobSerializer(many=True)
-    target_job_id = serializers.UUIDField(allow_null=True)
     suggested_at = serializers.DateTimeField()
 
 
@@ -110,15 +108,8 @@ class CVAnalysisSerializer(serializers.ModelSerializer):
             'items': obj.suggestions,
             'missing_keywords': obj.missing_keywords,
             'reference_jobs': obj.reference_jobs,
-            'target_job_id': obj.target_job_id,
             'suggested_at': obj.suggested_at,
         }).data
-
-
-class CVSuggestRequestSerializer(serializers.Serializer):
-    job_id = serializers.UUIDField(
-        required=False, allow_null=True, help_text='Tin tuyển dụng mục tiêu (không bắt buộc)'
-    )
 
 
 # ------------------------------------------------------------------------------------------ gợi ý việc làm

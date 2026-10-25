@@ -64,6 +64,8 @@ class CandidateProfileSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
+        
+
         def current(field):
             return attrs.get(field, getattr(self.instance, field, None))
 
@@ -105,7 +107,5 @@ def build_candidate_profile(user, request=None) -> dict | None:
         'candidate_id': str(profile.id),
         'headline': profile.headline,
         'is_open_to_work': profile.is_open_to_work,
-        # Đếm qua quan hệ ngược `cvs` (chỉ dùng ORM, không import app cvs). Frontend dựa vào đây
-        # để đưa ứng viên chưa có CV tới trang tải CV.
         'cv_count': profile.cvs.count(),
     }

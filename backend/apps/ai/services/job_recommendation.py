@@ -67,12 +67,6 @@ def recommend_jobs(cv, *, limit: int = DEFAULT_LIMIT) -> list[JobRecommendation]
     return items[:limit]
 
 
-def match_job(cv, job) -> JobRecommendation:
-    """Điểm phù hợp của CV với một tin bất kỳ (vd. tin mục tiêu khi gợi ý sửa CV), cùng cách tính với recommend_jobs.
-    `job` nên được prefetch job_skills__skill."""
-    return _match_one(cv, job)[0]
-
-
 def evaluate_job(cv, job) -> JobRecommendation:
     """AI đánh giá chi tiết một tin (job lấy từ jobs.selectors.public_jobs); luôn gọi lại LLM."""
     item, analysis, profile = _match_one(cv, job)

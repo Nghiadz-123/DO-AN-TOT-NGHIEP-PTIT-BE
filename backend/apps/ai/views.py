@@ -18,7 +18,6 @@ from . import selectors
 from .models import CVAnalysis
 from .serializers import (
     CVAnalysisSerializer,
-    CVSuggestRequestSerializer,
     JobRecommendationSerializer,
     RecommendationQuerySerializer,
 )
@@ -78,21 +77,12 @@ class CVScoreView(_CandidateCVAIView):
 class CVSuggestionView(_CandidateCVAIView):
     @extend_schema(
         tags=TAG,
-        summary='AI gợi ý sửa CV (theo tin mục tiêu và các tin đang tuyển gần CV nhất)',
-        request=CVSuggestRequestSerializer,
+        summary='AI gợi ý sửa CV (theo các tin đang tuyển gần CV nhất)',
+        request=None,
         responses={200: CVAnalysisSerializer, **AI_ERRORS},
     )
     def post(self, request, cv_id):
-        serializer = CVSuggestRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        cv = self.get_cv()
-        target_job = None
-        job_id = serializer.validated_data.get('job_id')
-        if job_id:
-            target_job = job_selectors.public_job_detail_queryset().filter(pk=job_id).first()
-            if target_job is None:
-                raise NotFound('Không tìm thấy tin tuyển dụng.')
-        return Response(CVAnalysisSerializer(cv_suggestion.suggest_cv(cv, target_job=target_job)).data)
+        return Response(CVAnalysisSerializer(cv_suggestion.suggest_cv(self.get_cv())).data)
 
 
 class RecommendedJobsView(_CandidateCVAIView):

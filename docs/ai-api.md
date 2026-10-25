@@ -7,7 +7,7 @@ Luồng của ứng viên:
 
 1. Tải CV lên (app `cvs` bóc tách văn bản, không dùng AI) → bấm **Chấm điểm bằng AI**: điểm 0-100 theo 5 tiêu chí,
    điểm mạnh / điểm cần cải thiện; đồng thời AI bóc tách thông tin CV (kỹ năng, kinh nghiệm, học vấn...).
-2. **Gợi ý sửa CV**: AI đối chiếu CV với tin mục tiêu (nếu chọn) và 20 việc làm phù hợp nhất với CV, chỉ ra cần
+2. **Gợi ý sửa CV**: AI đối chiếu CV với 20 việc làm phù hợp nhất với CV, chỉ ra cần
    sửa gì kèm ví dụ trước / sau và từ khóa còn thiếu.
 3. **Việc làm phù hợp**: xếp các tin đang tuyển theo độ phù hợp với CV; bấm **AI đánh giá chi tiết** để AI chấm
    riêng một tin.
@@ -89,14 +89,14 @@ bóc tách song song cùng lúc chấm điểm (2 lời gọi chạy đồng th�
 
 ### 4.2. Gợi ý sửa CV
 
-Prompt gồm văn bản CV + tin mục tiêu (nếu có, đánh dấu "MỤC TIÊU", đứng đầu) + **20 việc làm được gợi ý cho CV**:
+Prompt gồm văn bản CV + **20 việc làm được gợi ý cho CV**:
 đúng danh sách, điểm và thứ tự của trang "Việc làm phù hợp" (mục 4.3), thay vì 3 tin gần nhất như TestAI. Mỗi tin
 gửi kèm:
 
-- thông tin tin (chức danh, cấp bậc, kỹ năng bắt buộc / ưu tiên, yêu cầu, mô tả; tin tham chiếu rút gọn còn 8 dòng
-  mô tả / yêu cầu, tin mục tiêu 20 dòng);
+- thông tin tin (chức danh, cấp bậc, kỹ năng bắt buộc / ưu tiên, yêu cầu, mô tả; rút gọn còn 8 dòng
+  mô tả / yêu cầu);
 - `match_score`, `cv_has_skills`, `cv_missing_skills` (kết quả so khớp embedding + kỹ năng);
-- cuối prompt: **kỹ năng CV còn thiếu lặp lại nhiều nhất** trong tin mục tiêu và các tin có điểm từ 50 (tin điểm thấp,
+- cuối prompt: **kỹ năng CV còn thiếu lặp lại nhiều nhất** trong các tin có điểm từ 50 (tin điểm thấp,
   thường khác ngành, không tính để AI không khuyên học kỹ năng của ngành khác).
 
 Prompt yêu cầu mỗi gợi ý bám vào một đoạn cụ thể của CV và một yêu cầu cụ thể của tin (không gợi ý chung chung), ưu
@@ -134,7 +134,7 @@ Vector của CV chỉ được tạo khi chính ứng viên đó dùng gợi ý 
 
 | Bảng | Nội dung |
 |---|---|
-| `cv_analyses` | Một dòng / CV: thông tin trích xuất (`profile`, `source_hash` của văn bản CV), điểm (`score_total`, `score_breakdown`, `strengths`, `weaknesses`), gợi ý (`suggestions`, `missing_keywords`, `reference_jobs`, `target_job`) |
+| `cv_analyses` | Một dòng / CV: thông tin trích xuất (`profile`, `source_hash` của văn bản CV), điểm (`score_total`, `score_breakdown`, `strengths`, `weaknesses`), gợi ý (`suggestions`, `missing_keywords`, `reference_jobs`) |
 | `cv_embeddings` | Vector hồ sơ CV (`content_hash`, `model`, `vector`) |
 | `job_embeddings` | Vector tin tuyển dụng |
 | `match_results` | AI đánh giá CV - tin (`score`, `matched_skills`, `missing_skills`, `reason`, `cv_hash`, `job_hash`), duy nhất theo (cv, job) |
@@ -147,7 +147,7 @@ Tất cả dưới `/api/v1/`, chỉ cho **ứng viên**, cần `Authorization: 
 |---|---|---|
 | GET | `candidate/cv-analyses/` | Kết quả AI đã lưu của các CV của tôi (không gọi AI, không phân trang) |
 | POST | `candidate/cvs/{cv_id}/analysis/score/` | AI chấm điểm CV |
-| POST | `candidate/cvs/{cv_id}/analysis/suggestions/` | AI gợi ý sửa CV. Body `{"job_id": "<uuid>" \| null}` |
+| POST | `candidate/cvs/{cv_id}/analysis/suggestions/` | AI gợi ý sửa CV (không cần body) |
 | GET | `candidate/cvs/{cv_id}/recommended-jobs/` | Việc làm phù hợp, điểm cao trước. `?limit=1-50` (mặc định 20) |
 | POST | `candidate/cvs/{cv_id}/recommended-jobs/{job_id}/evaluate/` | AI đánh giá chi tiết CV với một tin đang tuyển |
 
@@ -169,8 +169,7 @@ Kết quả phân tích một CV (`GET cv-analyses` trả danh sách; hai API PO
     "items": [{"section": "Kinh nghiệm", "issue": "…", "suggestion": "…", "example_before": "…", "example_after": "…",
                "priority": "high", "job_ids": ["…"]}],
     "missing_keywords": ["đi gặp khách hàng"],
-    "reference_jobs": [{"id": "…", "title": "Nhân viên kinh doanh khách hàng doanh nghiệp", "company": "…", "score": 88, "is_target": true}],
-    "target_job_id": "…",
+    "reference_jobs": [{"id": "…", "title": "Nhân viên kinh doanh khách hàng doanh nghiệp", "company": "…", "score": 88}],
     "suggested_at": "…"
   },
   "updated_at": "…"
@@ -201,7 +200,7 @@ Một việc làm được gợi ý:
 | HTTP | `code` | Khi nào |
 |---|---|---|
 | 409 | `cv_not_ready` | CV chưa đọc được nội dung (đang xử lý / thất bại) |
-| 404 | `not_found` | CV không thuộc ứng viên; tin mục tiêu không tồn tại / là bản nháp; tin cần đánh giá không còn tuyển |
+| 404 | `not_found` | CV không thuộc ứng viên; tin cần đánh giá không còn tuyển |
 | 503 | `ai_not_configured` | Thiếu / sai `GEMINI_API_KEY`, model không tồn tại |
 | 503 | `ai_unavailable` | Mọi model quá tải / hết quota / lỗi mạng sau khi thử lại |
 | 502 | `ai_invalid_output` | Model trả về JSON không đúng cấu trúc |
@@ -210,7 +209,7 @@ Một việc làm được gợi ý:
 ## 7. Frontend
 
 - `src/api/aiApi.js` gọi các API trên; `src/api/adapters.js` (`toCVAnalysis`, `toJobRecommendation`).
-- `/cv-analysis`: tab **Chấm điểm**, **Gợi ý sửa CV** (tin mục tiêu qua `?jobId=`), **Thông tin AI trích xuất**.
+- `/cv-analysis`: tab **Chấm điểm**, **Gợi ý sửa CV**, **Thông tin AI trích xuất**.
   Tải CV lên xong tự chấm điểm. URL giữ `?cvId=&tab=` để trang khác dẫn link tới.
 - `/recommended-jobs`: chọn CV, lọc theo điểm, nút **AI đánh giá chi tiết** và **Gợi ý sửa CV theo tin này**.
 - `/cv`: cột **Điểm AI**; trang chi tiết tin: hộp "Mẹo từ AI" dẫn tới gợi ý sửa CV theo tin đó.
@@ -219,8 +218,8 @@ Một việc làm được gợi ý:
 
 ## 8. Kiểm thử
 
-- `pytest apps/ai`: 21 test với LLM giả (chấm điểm, chuẩn hóa output, CV chưa sẵn sàng, chưa cấu hình key, quyền truy
-  cập, xếp hạng việc làm, cache vector, AI đánh giá, gợi ý theo tin mục tiêu, xóa CV, embedding khi đăng / sửa tin,
+- `pytest apps/ai`: 20 test với LLM giả (chấm điểm, chuẩn hóa output, CV chưa sẵn sàng, chưa cấu hình key, quyền truy
+  cập, xếp hạng việc làm, cache vector, AI đánh giá, gợi ý sửa CV, xóa CV, embedding khi đăng / sửa tin,
   lệnh `embed_jobs`).
 - Đã chạy thật với Gemini (`gemini-3.5-flash-lite`) trên dữ liệu `seed_demo`: chấm điểm ~3-18 giây, gợi ý việc làm
   lần đầu ~2 giây (embedding 17-18 tin), AI đánh giá ~1 giây, gợi ý sửa CV ~3 giây.
