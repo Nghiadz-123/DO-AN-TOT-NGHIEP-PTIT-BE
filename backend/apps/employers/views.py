@@ -1,3 +1,4 @@
+"""API tài khoản nhà tuyển dụng: đăng ký, hồ sơ cá nhân, hồ sơ công ty và logo."""
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -8,6 +9,7 @@ from rest_framework.views import APIView
 
 from apps.accounts import services as account_services
 from apps.accounts.serializers import SessionSerializer, UserSerializer
+from common.views import validated_body
 
 from . import services
 from .permissions import CanManageCompany, EmployerAccessMixin, IsEmployer
@@ -18,6 +20,9 @@ from .serializers import (
     RecruiterProfileSerializer,
 )
 
+ACCOUNT_TAG = ['Employer - Tài khoản']
+COMPANY_TAG = ['Employer - Công ty']
+
 
 class EmployerRegisterView(APIView):
     """Đăng ký tài khoản nhà tuyển dụng: tạo user, công ty và đăng nhập luôn."""
@@ -26,11 +31,11 @@ class EmployerRegisterView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth'
 
-    @extend_schema(tags=['Employer - Tài khoản'], request=EmployerRegisterSerializer, responses={201: SessionSerializer})
+    # POST /api/v1/employer/register/
+    @extend_schema(tags=ACCOUNT_TAG, request=EmployerRegisterSerializer, responses={201: SessionSerializer})
     def post(self, request):
-        serializer = EmployerRegisterSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        recruiter = services.register_employer(**serializer.validated_data)
+        body = validated_body(request, EmployerRegisterSerializer)
+        recruiter = services.register_employer(**body)
         user_data = UserSerializer(recruiter.user, context={'request': request}).data
         return Response(
             {**account_services.issue_tokens(recruiter.user), 'user': user_data}, status=status.HTTP_201_CREATED
@@ -40,20 +45,21 @@ class EmployerRegisterView(APIView):
 class RecruiterProfileView(EmployerAccessMixin, APIView):
     """Hồ sơ cá nhân của nhà tuyển dụng đang đăng nhập."""
 
-    @extend_schema(tags=['Employer - Tài khoản'], responses=RecruiterProfileSerializer)
+    # GET /api/v1/employer/profile/
+    @extend_schema(tags=ACCOUNT_TAG, responses=RecruiterProfileSerializer)
     def get(self, request):
         return Response(RecruiterProfileSerializer(self.recruiter, context={'request': request}).data)
 
-    @extend_schema(tags=['Employer - Tài khoản'], request=RecruiterProfileSerializer, responses=RecruiterProfileSerializer)
+    # PATCH /api/v1/employer/profile/
+    @extend_schema(tags=ACCOUNT_TAG, request=RecruiterProfileSerializer, responses=RecruiterProfileSerializer)
     def patch(self, request):
-        serializer = RecruiterProfileSerializer(self.recruiter, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
+        body = validated_body(request, RecruiterProfileSerializer, instance=self.recruiter, partial=True)
+        user_fields = body.get('user', {})
         recruiter = services.update_recruiter_profile(
             self.recruiter,
-            full_name=data.get('user', {}).get('full_name'),
-            phone=data.get('user', {}).get('phone'),
-            position=data.get('position'),
+            full_name=user_fields.get('full_name'),
+            phone=user_fields.get('phone'),
+            position=body.get('position'),
         )
         return Response(RecruiterProfileSerializer(recruiter, context={'request': request}).data)
 
@@ -63,15 +69,16 @@ class CompanyView(EmployerAccessMixin, APIView):
 
     permission_classes = [IsEmployer, CanManageCompany]
 
-    @extend_schema(tags=['Employer - Công ty'], responses=CompanySerializer)
+    # GET /api/v1/employer/company/
+    @extend_schema(tags=COMPANY_TAG, responses=CompanySerializer)
     def get(self, request):
         return Response(CompanySerializer(self.company, context={'request': request}).data)
 
-    @extend_schema(tags=['Employer - Công ty'], request=CompanySerializer, responses=CompanySerializer)
+    # PATCH /api/v1/employer/company/
+    @extend_schema(tags=COMPANY_TAG, request=CompanySerializer, responses=CompanySerializer)
     def patch(self, request):
-        serializer = CompanySerializer(self.company, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        company = services.update_company(self.company, data=serializer.validated_data)
+        body = validated_body(request, CompanySerializer, instance=self.company, partial=True)
+        company = services.update_company(self.company, data=body)
         return Response(CompanySerializer(company, context={'request': request}).data)
 
 
@@ -81,14 +88,15 @@ class CompanyLogoView(EmployerAccessMixin, APIView):
     permission_classes = [IsEmployer, CanManageCompany]
     parser_classes = [MultiPartParser, FormParser]
 
-    @extend_schema(tags=['Employer - Công ty'], request=CompanyLogoSerializer, responses=CompanySerializer)
+    # POST /api/v1/employer/company/logo/   (multipart/form-data)
+    @extend_schema(tags=COMPANY_TAG, request=CompanyLogoSerializer, responses=CompanySerializer)
     def post(self, request):
-        serializer = CompanyLogoSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        company = services.set_company_logo(self.company, serializer.validated_data['logo'])
+        body = validated_body(request, CompanyLogoSerializer)
+        company = services.set_company_logo(self.company, body['logo'])
         return Response(CompanySerializer(company, context={'request': request}).data)
 
-    @extend_schema(tags=['Employer - Công ty'], request=None, responses=CompanySerializer)
+    # DELETE /api/v1/employer/company/logo/
+    @extend_schema(tags=COMPANY_TAG, request=None, responses=CompanySerializer)
     def delete(self, request):
         company = services.remove_company_logo(self.company)
         return Response(CompanySerializer(company, context={'request': request}).data)

@@ -29,7 +29,8 @@ DO-AN-TOT-NGHIEP-PTIT-BE/
 │       ├── favorites/          # Việc làm / công ty ứng viên yêu thích
 │       ├── invitations/        # Thư mời ứng tuyển: NTD mời ứng viên nộp hồ sơ vào tin
 │       ├── talents/            # NTD chủ động tìm ứng viên: kho CV công khai, ứng viên phù hợp với tin
-│       └── ai/                 # AI / LLM
+│       ├── ai/                 # AI / LLM
+│       └── administration/     # API trang quản trị hệ thống (admin): tổng quan, người dùng, doanh nghiệp, tin
 ├── database/
 │   └── schema.sql
 ├── docs/
@@ -71,6 +72,7 @@ DO-AN-TOT-NGHIEP-PTIT-BE/
 | `storage.py` | Abstraction lưu file (local khi dev, S3/MinIO khi production). |
 | `validators.py` | Validator dùng chung (kích thước file, định dạng, ...). |
 | `utils.py` | Hàm tiện ích nhỏ, không phụ thuộc app nào. |
+| `views.py` | Hàm dùng chung cho view: `validated_body` / `validated_query` (dữ liệu vào đã validate), `file_response` (xem / tải file). |
 
 ## `apps/` — Các module nghiệp vụ
 
@@ -90,6 +92,30 @@ DO-AN-TOT-NGHIEP-PTIT-BE/
 | `tests/` | Test của app. |
 
 Luồng xử lý chuẩn: `urls → views → serializers (validate) → services / selectors → models`.
+
+#### Quy ước viết `views.py` (nhìn vào là biết endpoint nhận gì, trả gì)
+
+```python
+class EmployerJobViewSet(EmployerAccessMixin, viewsets.ModelViewSet):
+    # POST /api/v1/employer/jobs/
+    @extend_schema(tags=EMPLOYER_TAG, summary='Tạo tin (lưu nháp hoặc đăng ngay)',
+                   request=EmployerJobWriteSerializer, responses={201: EmployerJobDetailSerializer})
+    def create(self, request, *args, **kwargs):
+        body = validated_body(request, EmployerJobWriteSerializer)       # 1. dữ liệu vào
+        job = services.create_job(company=self.company, ...)             # 2. nghiệp vụ
+        return Response(self._detail_data(job), status=201)              # 3. dữ liệu trả về
+```
+
+- Đầu file: docstring liệt kê các class view và việc của từng class.
+- Mỗi endpoint là một method có comment `# METHOD /api/v1/<đường-dẫn>/` ngay phía trên (kể cả `list` / `retrieve`
+  của ViewSet: khai báo lại và gọi `super()` để có chỗ đặt comment và tài liệu). List có lọc thì comment ghi các
+  tham số query (`?q=&status=&page=`).
+- `@extend_schema(request=..., parameters=..., responses=...)` đặt trên chính method là hợp đồng của endpoint;
+  Swagger (`/api/docs/`) sinh ra từ đây nên chạy `manage.py spectacular` phải không có cảnh báo.
+- Thân method: `validated_body(request, XSerializer)` / `validated_query(request, XQuerySerializer)` → gọi
+  `services` (ghi) hoặc `selectors` (đọc) → `Response(<Serializer trả về>(...).data, status=...)`. Truy vấn phức tạp
+  đặt ở `selectors`, thao tác ghi ở `services`.
+- Response luôn đi qua serializer (kể cả khi chỉ có vài trường) để tài liệu và dữ liệu thật không lệch nhau.
 
 ### `accounts/` — Authentication
 
@@ -176,6 +202,17 @@ Chứa toàn bộ logic AI. Các app khác chỉ gọi vào `ai/services/` (ho�
 | `services/job_recommendation.py` | **Job recommendation**: lọc nhanh ứng viên-job bằng vector similarity, sau đó LLM rerank và giải thích. |
 | `services/candidate_matching.py` | **Candidate matching**: chấm điểm và xếp hạng ứng viên cho một JD. |
 
+### `administration/` — Quản trị hệ thống
+
+API cho các trang `/admin` của frontend (khác Django Admin ở `/admin/` của backend). Chỉ admin hệ thống: user
+`role=admin` hoặc `is_staff` (`permissions.IsSystemAdmin`). Không có model: đọc / ghi dữ liệu của các app khác.
+
+- `admin/overview/`: số liệu toàn hệ thống, người dùng và doanh nghiệp mới nhất.
+- `admin/users/`, `admin/companies/`, `admin/jobs/`: danh sách (lọc `q`, `role` / `status`; chưa phân trang, trả 100
+  mục mới nhất kèm `count`) và `PATCH .../{id}/` để khóa / mở khóa tài khoản, xác minh doanh nghiệp, đổi trạng thái tin.
+- `services.set_job_status` ghi thẳng trạng thái tin, không đi qua `jobs.services` (không cập nhật `published_at` /
+  `closed_at`, không phát signal).
+
 ## Quy tắc phụ thuộc giữa các module
 
 - `common` không import từ `apps`.
@@ -184,6 +221,7 @@ Chứa toàn bộ logic AI. Các app khác chỉ gọi vào `ai/services/` (ho�
 - `cvs` → `candidates`. `jobs` → `employers`. `applications` → `cvs`, `jobs`.
 - `invitations` → `candidates`, `jobs`, `applications`. `talents` → `candidates`, `cvs`, `jobs`, `applications`, `invitations`.
 - `ai` được đọc dữ liệu từ `cvs`, `jobs`, `candidates`. Các app nghiệp vụ chỉ gọi `ai` qua `ai/services` hoặc `ai/tasks`.
+- `administration` → `accounts`, `employers`, `jobs`, `applications`; không app nào import ngược lại.
 - Không import `views` của app khác. Giao tiếp giữa các app qua `services` / `selectors`.
 
 ## Gốc repo

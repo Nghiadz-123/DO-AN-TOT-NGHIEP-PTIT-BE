@@ -1,5 +1,7 @@
 import pytest
 
+from apps.accounts.models import User
+from apps.accounts.services import issue_tokens
 from conftest import PASSWORD
 
 pytestmark = pytest.mark.django_db
@@ -130,3 +132,43 @@ def test_change_password_validates_strength(employer_client):
     )
 
     assert res.status_code == 400
+
+
+# ------------------------------------------------------------------------------------------ SSO vào Django Admin
+SSO_ADMIN = '/api/v1/auth/sso-admin/'
+
+
+@pytest.fixture
+def staff_user(db):
+    return User.objects.create_superuser('admin@test.com', PASSWORD, full_name='Quản trị viên')
+
+
+def logged_in_user_id(client):
+    return client.session.get('_auth_user_id')
+
+
+def test_sso_admin_logs_staff_into_django_admin(api_client, staff_user):
+    res = api_client.get(SSO_ADMIN, {'token': issue_tokens(staff_user)['access']})
+
+    assert res.status_code == 302
+    assert res['Location'] == '/admin/'
+    assert logged_in_user_id(api_client) == str(staff_user.pk)
+
+
+@pytest.mark.parametrize('token', [None, 'khong-hop-le'])
+def test_sso_admin_without_valid_token_only_redirects(api_client, token):
+    res = api_client.get(SSO_ADMIN, {'token': token} if token else {})
+
+    assert res.status_code == 302
+    assert res['Location'] == '/admin/'
+    assert logged_in_user_id(api_client) is None
+
+
+def test_sso_admin_ignores_non_staff_and_inactive_users(api_client, recruiter, staff_user):
+    staff_user.is_active = False
+    staff_user.save()
+
+    for user in (recruiter.user, staff_user):
+        res = api_client.get(SSO_ADMIN, {'token': issue_tokens(user)['access']})
+        assert res.status_code == 302
+        assert logged_in_user_id(api_client) is None

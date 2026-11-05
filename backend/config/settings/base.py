@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'apps.invitations',
     'apps.talents',
     'apps.ai',
+    'apps.administration',
 ]
 
 MIDDLEWARE = [

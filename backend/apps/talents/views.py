@@ -1,13 +1,17 @@
-from django.http import FileResponse
-from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
+"""API nhà tuyển dụng chủ động tìm ứng viên.
+
+- TalentPoolView            mọi ứng viên công khai CV (không cần chọn tin)
+- SuggestedCandidatesView   ứng viên phù hợp với một tin của công ty, có điểm 0-100
+- TalentCVFileView          xem / tải CV mặc định của một ứng viên công ty được xem
+"""
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics
 from rest_framework.exceptions import NotFound
 from rest_framework.views import APIView
 
-from apps.candidates.models import CandidateProfile
 from apps.employers.permissions import EmployerAccessMixin
 from apps.invitations import selectors as invitation_selectors
+from common.views import DOWNLOAD_PARAMETER, FILE_RESPONSE, file_response, validated_query
 
 from . import selectors
 from .serializers import TalentMatchSerializer, TalentPoolQuerySerializer, TalentProfileSerializer, TalentQuerySerializer
@@ -15,87 +19,65 @@ from .serializers import TalentMatchSerializer, TalentPoolQuerySerializer, Talen
 TAG = ['Employer - Tìm ứng viên']
 
 
-@extend_schema_view(get=extend_schema(
-    tags=TAG,
-    summary='Tìm ứng viên: ứng viên công khai CV (CV cập nhật gần nhất trước)',
-    parameters=[TalentPoolQuerySerializer],
-))
-class TalentPoolView(EmployerAccessMixin, generics.ListAPIView):
+class TalentPoolView(EmployerAccessMixin, generics.GenericAPIView):
     """Mọi ứng viên bật công khai CV (không cần chọn tin tuyển dụng), kèm CV chính và thư mời gần nhất của công ty."""
 
     serializer_class = TalentProfileSerializer
-    filter_backends = []
+    filter_backends = []  # lọc bằng query riêng (TalentPoolQuerySerializer), không dùng django-filter / ordering
 
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):  # lúc sinh tài liệu OpenAPI không có user
-            return CandidateProfile.objects.none()
-        query = TalentPoolQuerySerializer(data=self.request.query_params)
-        query.is_valid(raise_exception=True)
-        params = query.validated_data
-        return selectors.talent_pool(
-            search=params['q'].strip(), location_id=params.get('location_id'), level=params.get('level', '')
+    # GET /api/v1/employer/talents/?q=&location_id=&level=&page=
+    @extend_schema(tags=TAG, summary='Tìm ứng viên: ứng viên công khai CV (CV cập nhật gần nhất trước)',
+                   parameters=[TalentPoolQuerySerializer], responses=TalentProfileSerializer(many=True))
+    def get(self, request):
+        query = validated_query(request, TalentPoolQuerySerializer)
+        candidates = selectors.talent_pool(
+            search=query['q'].strip(), location_id=query.get('location_id'), level=query.get('level', '')
         )
-
-    def paginate_queryset(self, queryset):
-        page = super().paginate_queryset(queryset)
+        page = self.paginate_queryset(candidates)
+        # Thư mời chỉ tra cho các ứng viên của trang hiện tại
         invitations = invitation_selectors.invitation_map(self.company, (c.pk for c in page))
-        return [
+        profiles = [
             selectors.TalentProfile(candidate=c, cv=c.default_cvs[0], invitation=invitations.get(c.pk)) for c in page
         ]
+        return self.get_paginated_response(self.get_serializer(profiles, many=True).data)
 
 
-@extend_schema_view(get=extend_schema(
-    tags=TAG,
-    summary='Ứng viên phù hợp với tin tuyển dụng (điểm 0-100, kỹ năng đáp ứng / còn thiếu, lý do)',
-    parameters=[TalentQuerySerializer],
-))
-class SuggestedCandidatesView(EmployerAccessMixin, generics.ListAPIView):
-    """Ứng viên có CV phù hợp với một tin của công ty: công khai CV hoặc đã ứng tuyển vào công ty.
-    Kết quả là danh sách đã chấm điểm (không phải queryset) nên không dùng filter backend."""
+class SuggestedCandidatesView(EmployerAccessMixin, generics.GenericAPIView):
+    """Ứng viên có CV phù hợp với một tin của công ty: công khai CV hoặc đã ứng tuyển vào công ty."""
 
     serializer_class = TalentMatchSerializer
-    filter_backends = []
+    filter_backends = []  # kết quả là danh sách đã chấm điểm (không phải queryset)
 
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):  # lúc sinh tài liệu OpenAPI không có user
-            return []
-        self.job = selectors.get_company_job(self.company, self.kwargs['job_id'])
-        if self.job is None:
+    # GET /api/v1/employer/jobs/{job_id}/suggested-candidates/?q=&min_score=&hide_applied=&page=
+    @extend_schema(tags=TAG, summary='Ứng viên phù hợp với tin tuyển dụng (điểm 0-100, kỹ năng đáp ứng / còn thiếu, lý do)',
+                   parameters=[TalentQuerySerializer], responses=TalentMatchSerializer(many=True))
+    def get(self, request, job_id):
+        job = selectors.get_company_job(self.company, job_id)
+        if job is None:
             raise NotFound('Không tìm thấy tin tuyển dụng.')
-        query = TalentQuerySerializer(data=self.request.query_params)
-        query.is_valid(raise_exception=True)
-        params = query.validated_data
-        return selectors.suggested_candidates(
-            self.job, self.company, search=params['q'].strip(), min_score=params['min_score'],
-            hide_applied=params['hide_applied'],
+        query = validated_query(request, TalentQuerySerializer)
+        matches = selectors.suggested_candidates(
+            job, self.company, search=query['q'].strip(), min_score=query['min_score'],
+            hide_applied=query['hide_applied'],
         )
-
-    def paginate_queryset(self, queryset):
-        # Thư mời của tin đang xem chỉ tra cho các ứng viên của trang hiện tại
-        page = super().paginate_queryset(queryset)
-        invitations = invitation_selectors.invitation_map(self.company, (m.candidate.pk for m in page), job=self.job)
-        for item in page:
-            item.invitation = invitations.get(item.candidate.pk)
-        return page
+        page = self.paginate_queryset(matches)
+        # Thư mời của chính tin này, chỉ tra cho các ứng viên của trang hiện tại
+        invitations = invitation_selectors.invitation_map(self.company, (m.candidate.pk for m in page), job=job)
+        for match in page:
+            match.invitation = invitations.get(match.candidate.pk)
+        return self.get_paginated_response(self.get_serializer(page, many=True).data)
 
 
 class TalentCVFileView(EmployerAccessMixin, APIView):
     """CV mặc định của một ứng viên mà công ty được xem (công khai CV hoặc đã ứng tuyển vào công ty)."""
 
-    @extend_schema(
-        tags=TAG,
-        summary='Xem / tải CV mặc định của ứng viên',
-        parameters=[OpenApiParameter('download', OpenApiTypes.BOOL, description='1: tải về thay vì xem trực tiếp')],
-        responses={(200, 'application/octet-stream'): OpenApiResponse(OpenApiTypes.BINARY)},
-    )
+    # GET /api/v1/employer/talents/{candidate_id}/cv/?download=1
+    @extend_schema(tags=TAG, summary='Xem / tải CV mặc định của ứng viên', parameters=[DOWNLOAD_PARAMETER],
+                   responses=FILE_RESPONSE)
     def get(self, request, candidate_id):
         candidate = selectors.get_discoverable_candidate(self.company, candidate_id)
         cv = candidate.default_cvs[0] if candidate and candidate.default_cvs else None
-        if cv is None or not cv.file or not cv.file.storage.exists(cv.file.name):
+        if cv is None:
             raise NotFound('Không tìm thấy CV.')
-        return FileResponse(
-            cv.file.open('rb'),
-            as_attachment=request.query_params.get('download') in ('1', 'true'),
-            filename=cv.original_filename,
-            content_type=cv.mime_type,
-        )
+        return file_response(request, cv.file, filename=cv.original_filename, content_type=cv.mime_type,
+                             not_found_message='Không tìm thấy CV.')

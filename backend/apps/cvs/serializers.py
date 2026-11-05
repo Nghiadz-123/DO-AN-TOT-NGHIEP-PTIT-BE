@@ -90,3 +90,11 @@ class CVBuilderDocumentSerializer(serializers.Serializer):
         if not isinstance(value, dict):
             raise serializers.ValidationError('Nội dung CV phải là một đối tượng JSON.')
         return value
+
+
+class CVBuilderSerializer(serializers.Serializer):
+    """CV tự tạo đã lưu. Chưa lưu lần nào thì mọi trường là null."""
+
+    content = serializers.JSONField(allow_null=True, help_text='Nội dung trang Tạo CV (JSON)')
+    updated_at = serializers.DateTimeField(allow_null=True)
+    cv = CVDetailSerializer(allow_null=True, help_text='CV trong "CV của tôi" được dựng từ nội dung này')

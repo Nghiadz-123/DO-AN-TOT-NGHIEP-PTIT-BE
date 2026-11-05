@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 from apps.candidates.permissions import CandidateAccessMixin
 from apps.cvs import selectors as cv_selectors
 from apps.jobs import selectors as job_selectors
+from common.views import validated_query
 
 from . import selectors
 from .models import CVAnalysis
@@ -57,12 +58,15 @@ class CVAnalysisListView(CandidateAccessMixin, generics.ListAPIView):
             return CVAnalysis.objects.none()
         return selectors.candidate_analyses(self.candidate)
 
-    @extend_schema(tags=TAG, summary='Kết quả AI (điểm, gợi ý, thông tin trích xuất) của các CV của tôi')
+    # GET /api/v1/candidate/cv-analyses/
+    @extend_schema(tags=TAG, summary='Kết quả AI (điểm, gợi ý, thông tin trích xuất) của các CV của tôi',
+                   responses=CVAnalysisSerializer(many=True))
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
 
 class CVScoreView(_CandidateCVAIView):
+    # POST /api/v1/candidate/cvs/{cv_id}/analysis/score/
     @extend_schema(
         tags=TAG,
         summary='AI chấm điểm CV (0-100 theo 5 tiêu chí, điểm mạnh / điểm cần cải thiện)',
@@ -71,10 +75,12 @@ class CVScoreView(_CandidateCVAIView):
         responses={200: CVAnalysisSerializer, **AI_ERRORS},
     )
     def post(self, request, cv_id):
-        return Response(CVAnalysisSerializer(cv_analysis.score_cv(self.get_cv())).data)
+        analysis = cv_analysis.score_cv(self.get_cv())
+        return Response(CVAnalysisSerializer(analysis).data)
 
 
 class CVSuggestionView(_CandidateCVAIView):
+    # POST /api/v1/candidate/cvs/{cv_id}/analysis/suggestions/
     @extend_schema(
         tags=TAG,
         summary='AI gợi ý sửa CV (theo các tin đang tuyển gần CV nhất)',
@@ -82,10 +88,12 @@ class CVSuggestionView(_CandidateCVAIView):
         responses={200: CVAnalysisSerializer, **AI_ERRORS},
     )
     def post(self, request, cv_id):
-        return Response(CVAnalysisSerializer(cv_suggestion.suggest_cv(self.get_cv())).data)
+        analysis = cv_suggestion.suggest_cv(self.get_cv())
+        return Response(CVAnalysisSerializer(analysis).data)
 
 
 class RecommendedJobsView(_CandidateCVAIView):
+    # GET /api/v1/candidate/cvs/{cv_id}/recommended-jobs/?limit=
     @extend_schema(
         tags=TAG,
         summary='Việc làm phù hợp với CV (điểm 0-100, kỹ năng đã có / còn thiếu, lý do)',
@@ -94,13 +102,13 @@ class RecommendedJobsView(_CandidateCVAIView):
         responses={200: JobRecommendationSerializer(many=True), **AI_ERRORS},
     )
     def get(self, request, cv_id):
-        query = RecommendationQuerySerializer(data=request.query_params)
-        query.is_valid(raise_exception=True)
-        items = job_recommendation.recommend_jobs(self.get_cv(), limit=query.validated_data['limit'])
+        query = validated_query(request, RecommendationQuerySerializer)
+        items = job_recommendation.recommend_jobs(self.get_cv(), limit=query['limit'])
         return Response(JobRecommendationSerializer(items, many=True, context={'request': request}).data)
 
 
 class JobEvaluationView(_CandidateCVAIView):
+    # POST /api/v1/candidate/cvs/{cv_id}/recommended-jobs/{job_id}/evaluate/
     @extend_schema(
         tags=TAG,
         summary='AI đánh giá chi tiết mức độ phù hợp của CV với một tin đang tuyển',

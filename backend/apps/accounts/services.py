@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from .models import User
 
@@ -59,3 +59,17 @@ def logout(refresh_token: str) -> None:
         RefreshToken(refresh_token).blacklist()
     except TokenError as exc:
         raise ValidationError({'refresh': 'Refresh token không hợp lệ hoặc đã hết hạn.'}) from exc
+
+
+def staff_user_from_token(access_token: str) -> User | None:
+    """User đang hoạt động, có quyền vào Django Admin (staff / superuser), ứng với access token.
+
+    Token rỗng, sai, hết hạn hoặc không phải của staff thì trả về None.
+    """
+    if not access_token:
+        return None
+    try:
+        user = User.objects.get(id=AccessToken(access_token)['user_id'], is_active=True)
+    except (TokenError, KeyError, User.DoesNotExist, ValidationError):  # ValidationError: user_id không phải UUID
+        return None
+    return user if user.is_staff or user.is_superuser else None

@@ -17,4 +17,5 @@ urlpatterns = [
     path('', include('apps.talents.urls')),       # employer/talents/..., employer/jobs/{id}/suggested-candidates/
     path('', include('apps.invitations.urls')),   # employer/invitations/..., candidate/invitations/... (thư mời)
     path('', include('apps.ai.urls')),            # candidate/cv-analyses/, candidate/cvs/{id}/analysis|recommended-jobs/...
+    path('', include('apps.administration.urls')),  # admin/overview|users|companies|jobs/... (trang quản trị hệ thống)
 ]

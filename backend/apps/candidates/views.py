@@ -1,3 +1,4 @@
+"""API tài khoản ứng viên: đăng ký và hồ sơ (thông tin cá nhân, mong muốn công việc)."""
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny
@@ -7,6 +8,7 @@ from rest_framework.views import APIView
 
 from apps.accounts import services as account_services
 from apps.accounts.serializers import SessionSerializer, UserSerializer
+from common.views import validated_body
 
 from . import services
 from .permissions import CandidateAccessMixin
@@ -23,11 +25,11 @@ class CandidateRegisterView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth'
 
+    # POST /api/v1/candidate/register/
     @extend_schema(tags=TAG, request=CandidateRegisterSerializer, responses={201: SessionSerializer})
     def post(self, request):
-        serializer = CandidateRegisterSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        profile = services.register_candidate(**serializer.validated_data)
+        body = validated_body(request, CandidateRegisterSerializer)
+        profile = services.register_candidate(**body)
         user_data = UserSerializer(profile.user, context={'request': request}).data
         return Response(
             {**account_services.issue_tokens(profile.user), 'user': user_data}, status=status.HTTP_201_CREATED
@@ -37,17 +39,17 @@ class CandidateRegisterView(APIView):
 class CandidateProfileView(CandidateAccessMixin, APIView):
     """Hồ sơ của ứng viên đang đăng nhập: thông tin cá nhân và mong muốn công việc."""
 
+    # GET /api/v1/candidate/profile/
     @extend_schema(tags=TAG, responses=CandidateProfileSerializer)
     def get(self, request):
         return Response(CandidateProfileSerializer(self.candidate, context={'request': request}).data)
 
+    # PATCH /api/v1/candidate/profile/
     @extend_schema(tags=TAG, request=CandidateProfileSerializer, responses=CandidateProfileSerializer)
     def patch(self, request):
-        serializer = CandidateProfileSerializer(self.candidate, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        data = dict(serializer.validated_data)
-        user_data = data.pop('user', {})
+        body = validated_body(request, CandidateProfileSerializer, instance=self.candidate, partial=True)
+        user_fields = body.pop('user', {})
         profile = services.update_candidate_profile(
-            self.candidate, data=data, full_name=user_data.get('full_name'), phone=user_data.get('phone')
+            self.candidate, data=body, full_name=user_fields.get('full_name'), phone=user_fields.get('phone')
         )
         return Response(CandidateProfileSerializer(profile, context={'request': request}).data)
