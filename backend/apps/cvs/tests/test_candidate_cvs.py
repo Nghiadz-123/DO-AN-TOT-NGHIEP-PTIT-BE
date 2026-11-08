@@ -366,3 +366,88 @@ def test_other_candidate_upload_is_independent(upload, make_candidate):
     res = upload(SimpleUploadedFile('a.pdf', content), client=client_for(other.user))
 
     assert res.status_code == 201
+
+
+# ---------------------------------------------------------------- CV tự tạo -> "CV của tôi"
+BUILDER = '/api/v1/candidate/cv-builder/'
+
+
+def builder_content(**overrides):
+    return {
+        'fullName': 'Nguyễn Văn An', 'title': 'Backend Developer', 'email': 'an@example.com', 'phone': '0912345678',
+        'location': '', 'website': '', 'summary': 'Ba năm kinh nghiệm Python.', 'skills': 'Python, Django',
+        'experiences': [{'role': 'Dev', 'company': 'ACME', 'period': '2022 – nay', 'description': 'API & <xml>'}],
+        'educations': [{'degree': '', 'school': '', 'period': '', 'description': ''}], 'projects': '',
+        **overrides,
+    }
+
+
+@pytest.fixture
+def save_builder(candidate_client, django_capture_on_commit_callbacks):
+    def do(content):
+        with django_capture_on_commit_callbacks(execute=True):
+            return candidate_client.put(BUILDER, {'content': content}, format='json')
+
+    return do
+
+
+def test_builder_save_adds_cv_to_list(save_builder, candidate_client):
+    res = save_builder(builder_content())
+
+    assert res.status_code == 200, res.data
+    cvs = candidate_client.get(CVS).data
+    assert len(cvs) == 1
+    assert cvs[0]['id'] == str(res.data['cv_id'])
+    assert cvs[0]['title'] == 'CV tự tạo - Backend Developer'
+    assert cvs[0]['mime_type'] == DOCX_MIME
+    assert cvs[0]['is_default'] is True
+    detail = candidate_client.get(url(cvs[0]['id'])).data
+    assert detail['parse_status'] == 'completed'
+    assert 'Nguyễn Văn An' in detail['raw_text'] and 'API & <xml>' in detail['raw_text']
+
+
+def test_builder_save_again_adds_new_cv_and_keeps_old(save_builder, candidate_client):
+    first = save_builder(builder_content())
+    changed = save_builder(builder_content(summary='Năm năm kinh nghiệm.'))
+
+    assert first.data['cv_created'] is True and changed.data['cv_created'] is True
+    assert first.data['cv_id'] != changed.data['cv_id']
+    assert {cv['id'] for cv in candidate_client.get(CVS).data} == {str(first.data['cv_id']), str(changed.data['cv_id'])}
+    assert 'Ba năm kinh nghiệm Python.' in candidate_client.get(url(first.data['cv_id'])).data['raw_text']
+    assert 'Năm năm kinh nghiệm.' in candidate_client.get(url(changed.data['cv_id'])).data['raw_text']
+
+
+def test_builder_save_unchanged_content_does_not_duplicate(save_builder, candidate_client):
+    first = save_builder(builder_content())
+    again = save_builder(builder_content())
+
+    assert again.data['cv_created'] is False
+    assert again.data['cv_id'] == first.data['cv_id']
+    assert len(candidate_client.get(CVS).data) == 1
+
+
+def test_builder_save_after_cv_deleted_creates_new_cv(save_builder, candidate_client):
+    first = save_builder(builder_content())
+    candidate_client.delete(url(first.data['cv_id']))
+
+    second = save_builder(builder_content())
+
+    assert second.data['cv_id'] != first.data['cv_id']
+    assert [cv['id'] for cv in candidate_client.get(CVS).data] == [str(second.data['cv_id'])]
+
+
+def test_builder_save_empty_content_does_not_create_cv(save_builder, candidate_client):
+    res = save_builder({'fullName': '', 'experiences': [], 'educations': []})
+
+    assert res.status_code == 200
+    assert res.data['cv_id'] is None
+    assert candidate_client.get(CVS).data == []
+
+
+@override_settings(CANDIDATE_MAX_CVS=0)
+def test_builder_save_keeps_content_when_cv_limit_reached(save_builder, candidate_client):
+    res = save_builder(builder_content())
+
+    assert res.status_code == 400
+    assert res.data['code'] == 'cv_limit_reached'
+    assert candidate_client.get(BUILDER).data['content']['fullName'] == 'Nguyễn Văn An'
