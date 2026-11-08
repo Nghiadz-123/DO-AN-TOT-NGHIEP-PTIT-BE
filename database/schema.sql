@@ -1,13 +1,13 @@
 -- ====================================================================================================
--- Smart ATS (CVision) - CẤU TRÚC DATABASE PostgreSQL
+-- Smart ATS (ats_db) - CẤU TRÚC DATABASE PostgreSQL
 -- Sinh tự động từ migration Django: khớp 100% với code backend hiện tại. Không sửa tay.
 -- Gồm: bảng / ràng buộc / index, lịch sử migration (để `manage.py migrate` không tạo lại bảng)
 --      và danh mục bắt buộc (tỉnh/thành, ngành nghề, kỹ năng).
 --
 -- Cách dùng (database phải TRỐNG):
---   CREATE DATABASE "CVision";        -- giữ dấu nháy kép vì tên có chữ hoa
---   psql -U postgres -d CVision -v ON_ERROR_STOP=1 -f database/schema.sql
---   psql -U postgres -d CVision -v ON_ERROR_STOP=1 -f database/seed.sql      (dữ liệu mẫu, tùy chọn)
+--   CREATE DATABASE "ats_db";        -- giữ dấu nháy kép vì tên có chữ hoa
+--   psql -U postgres -d ats_db -v ON_ERROR_STOP=1 -f database/schema.sql
+--   psql -U postgres -d ats_db -v ON_ERROR_STOP=1 -f database/seed.sql      (dữ liệu mẫu, tùy chọn)
 -- PostgreSQL 13 trở lên.
 -- ====================================================================================================
 
