@@ -397,8 +397,8 @@ def test_builder_save_adds_cv_to_list(save_builder, candidate_client):
     assert res.status_code == 200, res.data
     cvs = candidate_client.get(CVS).data
     assert len(cvs) == 1
-    assert cvs[0]['id'] == str(res.data['cv_id'])
-    assert cvs[0]['title'] == 'CV tự tạo - Backend Developer'
+    assert cvs[0]['id'] == res.data['cv']['id']
+    assert cvs[0]['title'] == 'Nguyễn Văn An - Backend Developer'
     assert cvs[0]['mime_type'] == DOCX_MIME
     assert cvs[0]['is_default'] is True
     detail = candidate_client.get(url(cvs[0]['id'])).data
@@ -406,48 +406,49 @@ def test_builder_save_adds_cv_to_list(save_builder, candidate_client):
     assert 'Nguyễn Văn An' in detail['raw_text'] and 'API & <xml>' in detail['raw_text']
 
 
-def test_builder_save_again_adds_new_cv_and_keeps_old(save_builder, candidate_client):
+def test_builder_save_again_updates_same_cv(save_builder, candidate_client):
+    """CV chưa dùng ứng tuyển: sửa nội dung thì thay file của chính CV đó, không thêm CV mới."""
     first = save_builder(builder_content())
     changed = save_builder(builder_content(summary='Năm năm kinh nghiệm.'))
 
-    assert first.data['cv_created'] is True and changed.data['cv_created'] is True
-    assert first.data['cv_id'] != changed.data['cv_id']
-    assert {cv['id'] for cv in candidate_client.get(CVS).data} == {str(first.data['cv_id']), str(changed.data['cv_id'])}
-    assert 'Ba năm kinh nghiệm Python.' in candidate_client.get(url(first.data['cv_id'])).data['raw_text']
-    assert 'Năm năm kinh nghiệm.' in candidate_client.get(url(changed.data['cv_id'])).data['raw_text']
+    assert changed.data['cv']['id'] == first.data['cv']['id']
+    assert [cv['id'] for cv in candidate_client.get(CVS).data] == [first.data['cv']['id']]
+    raw_text = candidate_client.get(url(first.data['cv']['id'])).data['raw_text']
+    assert 'Năm năm kinh nghiệm.' in raw_text and 'Ba năm kinh nghiệm Python.' not in raw_text
 
 
 def test_builder_save_unchanged_content_does_not_duplicate(save_builder, candidate_client):
     first = save_builder(builder_content())
     again = save_builder(builder_content())
 
-    assert again.data['cv_created'] is False
-    assert again.data['cv_id'] == first.data['cv_id']
+    assert again.data['cv']['id'] == first.data['cv']['id']
     assert len(candidate_client.get(CVS).data) == 1
 
 
 def test_builder_save_after_cv_deleted_creates_new_cv(save_builder, candidate_client):
     first = save_builder(builder_content())
-    candidate_client.delete(url(first.data['cv_id']))
+    candidate_client.delete(url(first.data['cv']['id']))
 
     second = save_builder(builder_content())
 
-    assert second.data['cv_id'] != first.data['cv_id']
-    assert [cv['id'] for cv in candidate_client.get(CVS).data] == [str(second.data['cv_id'])]
+    assert second.data['cv']['id'] != first.data['cv']['id']
+    assert [cv['id'] for cv in candidate_client.get(CVS).data] == [second.data['cv']['id']]
 
 
 def test_builder_save_empty_content_does_not_create_cv(save_builder, candidate_client):
     res = save_builder({'fullName': '', 'experiences': [], 'educations': []})
 
-    assert res.status_code == 200
-    assert res.data['cv_id'] is None
+    assert res.status_code == 400
+    assert res.data['code'] == 'builder_cv_empty'
     assert candidate_client.get(CVS).data == []
+    assert candidate_client.get(BUILDER).data['content'] is None
 
 
 @override_settings(CANDIDATE_MAX_CVS=0)
-def test_builder_save_keeps_content_when_cv_limit_reached(save_builder, candidate_client):
+def test_builder_save_rejected_when_cv_limit_reached(save_builder, candidate_client):
+    """Hết lượt CV: cả lần lưu bị hủy (một transaction), nội dung chưa được lưu."""
     res = save_builder(builder_content())
 
     assert res.status_code == 400
     assert res.data['code'] == 'cv_limit_reached'
-    assert candidate_client.get(BUILDER).data['content']['fullName'] == 'Nguyễn Văn An'
+    assert candidate_client.get(BUILDER).data['content'] is None
